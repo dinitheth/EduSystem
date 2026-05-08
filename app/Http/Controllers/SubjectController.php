@@ -19,21 +19,23 @@ class SubjectController extends Controller
             'subject_code' => 'required|string|max:50|unique:subjects,subject_code',
             'subject_name' => 'required|string|max:255',
             'description'  => 'nullable|string|max:500',
+            'category'     => 'nullable|string|max:100',
+            'is_active'    => 'nullable|boolean',
         ], [
             'subject_code.required' => 'Subject code is required.',
             'subject_code.unique'   => 'This subject code is already taken.',
             'subject_name.required' => 'Subject name is required.',
         ]);
 
-        Subject::create($request->only(['subject_code', 'subject_name', 'description']));
+        Subject::create([
+            'subject_code' => $request->subject_code,
+            'subject_name' => $request->subject_name,
+            'description'  => $request->description,
+            'category'     => $request->category,
+            'is_active'    => $request->has('is_active') ? 1 : 0,
+        ]);
 
         return redirect()->route('subjects.index')->with('success', 'Subject added successfully!');
-    }
-
-    public function edit(Subject $subject)
-    {
-        $subjects = Subject::latest()->get();
-        return view('subjects.index', compact('subject', 'subjects'));
     }
 
     public function update(Request $request, Subject $subject)
@@ -42,13 +44,21 @@ class SubjectController extends Controller
             'subject_code' => 'required|string|max:50|unique:subjects,subject_code,' . $subject->id,
             'subject_name' => 'required|string|max:255',
             'description'  => 'nullable|string|max:500',
+            'category'     => 'nullable|string|max:100',
+            'is_active'    => 'nullable|boolean',
         ], [
             'subject_code.required' => 'Subject code is required.',
             'subject_code.unique'   => 'This subject code is already taken.',
             'subject_name.required' => 'Subject name is required.',
         ]);
 
-        $subject->update($request->only(['subject_code', 'subject_name', 'description']));
+        $subject->update([
+            'subject_code' => $request->subject_code,
+            'subject_name' => $request->subject_name,
+            'description'  => $request->description,
+            'category'     => $request->category,
+            'is_active'    => $request->has('is_active') ? 1 : 0,
+        ]);
 
         return redirect()->route('subjects.index')->with('success', 'Subject updated successfully!');
     }

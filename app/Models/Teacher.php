@@ -6,13 +6,10 @@ use Illuminate\Database\Eloquent\Model;
 
 class Teacher extends Model
 {
-    protected $table = 'teachers';
+    protected $fillable = ['employee_no','full_name','email','phone','specialization','department','employment_status'];
 
-    protected $fillable = [
-        'employee_no',
-        'full_name',
-        'email',
-        'phone',
-        'specialization',
-    ];
+    public function subjects()
+    {
+        return $this->belongsToMany(Subject::class, 'teacher_subject');
+    }
 }

@@ -171,6 +171,15 @@
            class="sidebar-link {{ request()->routeIs('subjects.*') ? 'active' : '' }}">
             <i class="bi bi-book-fill"></i> Subjects
         </a>
+
+        <div style="flex:1;"></div>
+
+        <div class="nav-label" style="margin-top:10px;">Data Tools</div>
+
+        <a href="{{ route('import.index') }}"
+           class="sidebar-link {{ request()->routeIs('import.*') ? 'active' : '' }}">
+            <i class="bi bi-box-arrow-in-down"></i> Import
+        </a>
     </nav>
 </div>
 

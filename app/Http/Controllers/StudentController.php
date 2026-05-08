@@ -3,74 +3,77 @@
 namespace App\Http\Controllers;
 
 use App\Models\Student;
+use App\Models\Subject;
 use Illuminate\Http\Request;
 
 class StudentController extends Controller
 {
     public function index()
     {
-        $students = Student::latest()->get();
-        return view('students.index', compact('students'));
+        $students = Student::with('subjects')->latest()->get();
+        $subjects = Subject::orderBy('subject_name')->get();
+        return view('students.index', compact('students', 'subjects'));
     }
 
     public function store(Request $request)
     {
         $request->validate([
-            'reg_no'    => 'required|string|max:50|unique:students,reg_no',
-            'full_name' => 'required|string|max:255',
-            'email'     => 'required|email|max:255|unique:students,email',
-            'phone'     => 'required|string|max:20',
-            'dob'       => 'required|date|before:today',
-        ], [
-            'reg_no.required'    => 'Registration number is required.',
-            'reg_no.unique'      => 'This registration number is already taken.',
-            'full_name.required' => 'Full name is required.',
-            'email.required'     => 'Email address is required.',
-            'email.email'        => 'Please enter a valid email address.',
-            'email.unique'       => 'This email is already registered.',
-            'phone.required'     => 'Phone number is required.',
-            'dob.required'       => 'Date of birth is required.',
-            'dob.before'         => 'Date of birth must be in the past.',
+            'reg_no'        => 'required|string|max:50|unique:students,reg_no',
+            'full_name'     => 'required|string|max:255',
+            'email'         => 'required|email|max:255|unique:students,email',
+            'phone'         => 'required|string|max:20',
+            'dob'           => 'required|date|before:today',
+            'gender'        => 'nullable|in:Male,Female,Other',
+            'status'        => 'nullable|in:Active,Inactive',
+            'subject_ids'   => 'nullable|array',
+            'subject_ids.*' => 'exists:subjects,id',
         ]);
 
-        Student::create($request->only(['reg_no', 'full_name', 'email', 'phone', 'dob']));
+        $student = Student::create([
+            'reg_no'    => $request->reg_no,
+            'full_name' => $request->full_name,
+            'email'     => $request->email,
+            'phone'     => $request->phone,
+            'dob'       => $request->dob,
+            'gender'    => $request->gender,
+            'status'    => $request->status ?? 'Active',
+        ]);
+        $student->subjects()->sync($request->input('subject_ids', []));
 
         return redirect()->route('students.index')->with('success', 'Student registered successfully!');
-    }
-
-    public function edit(Student $student)
-    {
-        $students = Student::latest()->get();
-        return view('students.index', compact('student', 'students'));
     }
 
     public function update(Request $request, Student $student)
     {
         $request->validate([
-            'reg_no'    => 'required|string|max:50|unique:students,reg_no,' . $student->id,
-            'full_name' => 'required|string|max:255',
-            'email'     => 'required|email|max:255|unique:students,email,' . $student->id,
-            'phone'     => 'required|string|max:20',
-            'dob'       => 'required|date|before:today',
-        ], [
-            'reg_no.required'    => 'Registration number is required.',
-            'reg_no.unique'      => 'This registration number is already taken.',
-            'full_name.required' => 'Full name is required.',
-            'email.required'     => 'Email address is required.',
-            'email.email'        => 'Please enter a valid email address.',
-            'email.unique'       => 'This email is already registered.',
-            'phone.required'     => 'Phone number is required.',
-            'dob.required'       => 'Date of birth is required.',
-            'dob.before'         => 'Date of birth must be in the past.',
+            'reg_no'        => 'required|string|max:50|unique:students,reg_no,' . $student->id,
+            'full_name'     => 'required|string|max:255',
+            'email'         => 'required|email|max:255|unique:students,email,' . $student->id,
+            'phone'         => 'required|string|max:20',
+            'dob'           => 'required|date|before:today',
+            'gender'        => 'nullable|in:Male,Female,Other',
+            'status'        => 'nullable|in:Active,Inactive',
+            'subject_ids'   => 'nullable|array',
+            'subject_ids.*' => 'exists:subjects,id',
         ]);
 
-        $student->update($request->only(['reg_no', 'full_name', 'email', 'phone', 'dob']));
+        $student->update([
+            'reg_no'    => $request->reg_no,
+            'full_name' => $request->full_name,
+            'email'     => $request->email,
+            'phone'     => $request->phone,
+            'dob'       => $request->dob,
+            'gender'    => $request->gender,
+            'status'    => $request->status ?? 'Active',
+        ]);
+        $student->subjects()->sync($request->input('subject_ids', []));
 
         return redirect()->route('students.index')->with('success', 'Student updated successfully!');
     }
 
     public function destroy(Student $student)
     {
+        $student->subjects()->detach();
         $student->delete();
         return redirect()->route('students.index')->with('success', 'Student deleted successfully!');
     }
