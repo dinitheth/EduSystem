@@ -27,3 +27,4 @@ Route::post('/export',         [ExportController::class, 'export'])->name('expor
 Route::get('/import',  [ImportController::class, 'index'])->name('import.index');
 Route::post('/import', [ImportController::class, 'import'])->name('import.store');
 Route::post('/import/confirm', [ImportController::class, 'confirm'])->name('import.confirm');
+Route::post('/import/clear', [ImportController::class, 'clear'])->name('import.clear');

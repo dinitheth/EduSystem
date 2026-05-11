@@ -13,11 +13,18 @@
                 <i class="bi bi-box-arrow-in-down me-2"></i>Import Data
             </div>
             <div class="card-body p-4">
+                @if(session('success'))
+                    <div class="alert alert-success rounded-3 mb-4">
+                        {{ session('success') }}
+                    </div>
+                @endif
 
                 @if($errors->any())
                     <div class="alert alert-danger rounded-3 mb-4">
                         <ul class="mb-0 ps-3">
-                            @foreach($errors->all() as $e)<li style="font-size:.85rem;">{{ $e }}</li>@endforeach
+                            @foreach($errors->all() as $e)
+                                <li style="font-size:.85rem;">{{ $e }}</li>
+                            @endforeach
                         </ul>
                     </div>
                 @endif
@@ -29,101 +36,138 @@
                         <label class="form-label fw-semibold mb-2">What are you importing?</label>
                         <div class="d-flex gap-2 flex-wrap">
                             @foreach([['students','people-fill','#6366f1','Students'],['teachers','person-workspace','#0ea5e9','Teachers'],['subjects','book-fill','#10b981','Subjects']] as [$val,$icon,$color,$label])
-                            <label class="filter-chip" for="imp_{{ $val }}">
-                                <input type="radio" name="data_type" id="imp_{{ $val }}" value="{{ $val }}" class="d-none"
-                                    {{ old('data_type', $preview['type'] ?? 'students') == $val ? 'checked' : '' }}>
-                                <i class="bi bi-{{ $icon }}" style="color:{{ $color }};"></i>
-                                {{ $label }}
-                            </label>
+                                <label class="filter-chip" for="imp_{{ $val }}">
+                                    <input
+                                        type="radio"
+                                        name="data_type"
+                                        id="imp_{{ $val }}"
+                                        value="{{ $val }}"
+                                        class="d-none"
+                                        {{ old('data_type', $preview['type'] ?? 'students') == $val ? 'checked' : '' }}
+                                    >
+                                    <i class="bi bi-{{ $icon }}" style="color:{{ $color }};"></i>
+                                    {{ $label }}
+                                </label>
                             @endforeach
                         </div>
                     </div>
 
                     <div class="mb-4">
                         <label class="form-label fw-semibold mb-2"><i class="bi bi-upload me-1 text-info"></i>Upload File</label>
-                        <div id="dropZone" class="rounded-3 p-5 text-center"
-                             style="border:2px dashed #cbd5e1; cursor:pointer; transition:.2s;">
+                        <div
+                            id="dropZone"
+                            class="rounded-3 p-5 text-center"
+                            style="border:2px dashed #cbd5e1; cursor:pointer; transition:.2s;"
+                        >
                             <i class="bi bi-cloud-upload" style="font-size:2.2rem;color:#94a3b8;"></i>
                             <p class="mt-2 mb-1 fw-semibold text-secondary" style="font-size:.9rem;">Click to browse or drag and drop file here</p>
                             <p class="text-muted mb-0" style="font-size:.78rem;">CSV, XLSX or XLS, max 10 MB</p>
-                            <input type="file" name="file" id="fileInput" accept=".csv,.xlsx,.xls"
-                                   class="d-none @error('file') is-invalid @enderror">
+                            <input
+                                type="file"
+                                name="file"
+                                id="fileInput"
+                                accept=".csv,.xlsx,.xls"
+                                class="d-none @error('file') is-invalid @enderror"
+                            >
                         </div>
-                        <div id="fileInfo" class="mt-2 text-success small" style="display:none;">
-                            <i class="bi bi-check-circle me-1"></i><span id="fileName"></span>
+                        <div id="fileInfo" class="mt-2 text-success small" style="{{ $preview ? 'display:block;' : 'display:none;' }}">
+                            <i class="bi bi-check-circle me-1"></i><span id="fileName">{{ $preview['file_name'] ?? '' }}</span>
                         </div>
-                        @error('file')<div class="text-danger small mt-1">{{ $message }}</div>@enderror
+                        @error('file')
+                            <div class="text-danger small mt-1">{{ $message }}</div>
+                        @enderror
                     </div>
 
-                    <div class="d-grid">
-                        <button type="submit" class="btn btn-info fw-semibold text-white">
+                    <div class="d-flex flex-wrap gap-2">
+                        <button type="submit" class="btn btn-info fw-semibold text-white flex-grow-1">
                             <i class="bi bi-eye me-2"></i>Preview Import
                         </button>
                     </div>
                 </form>
 
                 @if($preview)
-                <div class="import-preview border rounded-3 overflow-hidden">
-                    <div class="d-flex flex-wrap gap-2 justify-content-between align-items-center px-3 py-3 border-bottom" style="background:#f8faff;">
-                        <div>
-                            <h6 class="mb-1 fw-semibold">{{ $preview['label'] }} Preview</h6>
-                            <div class="text-muted small">
-                                {{ $preview['file_name'] }} · {{ $preview['total_rows'] }} row(s) found ·
-                                {{ $preview['valid_rows'] }} ready · {{ $preview['skipped_rows'] }} need attention
+                    <div class="import-preview border rounded-3 overflow-hidden">
+                        <div class="d-flex flex-wrap gap-3 justify-content-between align-items-center px-3 py-3 border-bottom" style="background:#f8faff;">
+                            <div>
+                                <h6 class="mb-1 fw-semibold">{{ $preview['label'] }} Preview</h6>
+                                <div class="text-muted small">
+                                    {{ $preview['file_name'] }} - {{ $preview['total_rows'] }} row(s) found -
+                                    {{ $preview['valid_rows'] }} ready - {{ $preview['skipped_rows'] }} need attention
+                                </div>
+                                <div class="small mt-1 text-primary fw-semibold">
+                                    Batch {{ $preview['batch_number'] }} of {{ $preview['batch_total'] }}
+                                    - Rows {{ $preview['batch_start'] }}-{{ $preview['batch_end'] }}
+                                    - {{ $preview['batch_valid_rows'] }} ready in this batch
+                                    - {{ $preview['batch_skipped_rows'] }} skipped in this batch
+                                </div>
+                            </div>
+                            <div class="d-flex flex-wrap gap-2">
+                                <form action="{{ route('import.clear') }}" method="POST">
+                                    @csrf
+                                    <input type="hidden" name="token" value="{{ $preview['token'] }}">
+                                    <button type="submit" class="btn btn-outline-secondary fw-semibold">
+                                        <i class="bi bi-trash3 me-1"></i>Clear Import
+                                    </button>
+                                </form>
+                                <form action="{{ route('import.confirm') }}" method="POST">
+                                    @csrf
+                                    <input type="hidden" name="token" value="{{ $preview['token'] }}">
+                                    <button type="submit" class="btn btn-dark fw-semibold" {{ $preview['batch_valid_rows'] === 0 ? 'disabled' : '' }}>
+                                        <i class="bi bi-database-check me-1"></i>{{ $preview['has_more_batches'] ? 'Approve & Import This Batch' : 'Approve & Finish Import' }}
+                                    </button>
+                                </form>
                             </div>
                         </div>
-                        <form action="{{ route('import.confirm') }}" method="POST">
-                            @csrf
-                            <input type="hidden" name="token" value="{{ $preview['token'] }}">
-                            <button type="submit" class="btn btn-dark fw-semibold" {{ $preview['valid_rows'] === 0 ? 'disabled' : '' }}>
-                                <i class="bi bi-database-check me-1"></i>Import {{ $preview['valid_rows'] }} Row{{ $preview['valid_rows'] === 1 ? '' : 's' }}
-                            </button>
-                        </form>
-                    </div>
 
-                    <div class="px-3 py-2 border-bottom bg-white">
-                        <div class="small fw-semibold mb-2">Detected column mapping</div>
-                        <div class="d-flex flex-wrap gap-2">
-                            @foreach($preview['columns'] as $column)
-                                <span class="mapping-pill">
-                                    <strong>{{ str_replace('_', ' ', $column) }}</strong>
-                                    <i class="bi bi-arrow-left-right mx-1"></i>
-                                    {{ $preview['mapping'][$column]['header'] ?? 'not found' }}
-                                </span>
-                            @endforeach
-                        </div>
-                    </div>
-
-                    <div class="table-responsive" style="max-height:360px;">
-                        <table class="table table-bordered table-hover align-middle mb-0" style="font-size:.82rem;">
-                            <thead style="position:sticky;top:0;z-index:1;">
-                                <tr>
-                                    <th style="background:#111827;color:#fff;">Status</th>
-                                    @foreach($preview['columns'] as $column)
-                                        <th style="background:#111827;color:#fff;">{{ ucwords(str_replace('_', ' ', $column)) }}</th>
-                                    @endforeach
-                                </tr>
-                            </thead>
-                            <tbody>
-                                @foreach($preview['rows'] as $row)
-                                <tr>
-                                    <td>
-                                        @if($row['_valid'])
-                                            <span class="badge rounded-pill" style="background:#d1fae5;color:#065f46;">Ready</span>
-                                        @else
-                                            <span class="badge rounded-pill" style="background:#fee2e2;color:#991b1b;">Skipped</span>
-                                            <div class="text-danger small mt-1">{{ implode(', ', $row['_errors']) }}</div>
-                                        @endif
-                                    </td>
-                                    @foreach($preview['columns'] as $column)
-                                        <td>{{ $row[$column] !== '' ? $row[$column] : '—' }}</td>
-                                    @endforeach
-                                </tr>
+                        <div class="px-3 py-2 border-bottom bg-white">
+                            <div class="small fw-semibold mb-2">Detected column mapping</div>
+                            <div class="d-flex flex-wrap gap-2">
+                                @foreach($preview['columns'] as $column)
+                                    <span class="mapping-pill">
+                                        <strong>{{ str_replace('_', ' ', $column) }}</strong>
+                                        <i class="bi bi-arrow-left-right mx-1"></i>
+                                        {{ $preview['mapping'][$column]['header'] ?? 'not found' }}
+                                    </span>
                                 @endforeach
-                            </tbody>
-                        </table>
+                            </div>
+                        </div>
+
+                        <div class="table-responsive" style="max-height:360px;">
+                            <table class="table table-bordered table-hover align-middle mb-0" style="font-size:.82rem;">
+                                <thead style="position:sticky;top:0;z-index:1;">
+                                    <tr>
+                                        <th style="background:#111827;color:#fff;">Status</th>
+                                        @foreach($preview['columns'] as $column)
+                                            <th style="background:#111827;color:#fff;">{{ ucwords(str_replace('_', ' ', $column)) }}</th>
+                                        @endforeach
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    @foreach($preview['rows'] as $row)
+                                        <tr>
+                                            <td>
+                                                @if($row['_valid'])
+                                                    <span class="badge rounded-pill" style="background:#d1fae5;color:#065f46;">Ready</span>
+                                                @else
+                                                    <span class="badge rounded-pill" style="background:#fee2e2;color:#991b1b;">Skipped</span>
+                                                    <div class="text-danger small mt-1">{{ implode(', ', $row['_errors']) }}</div>
+                                                @endif
+                                            </td>
+                                            @foreach($preview['columns'] as $column)
+                                                <td>{{ $row[$column] !== '' ? $row[$column] : '-' }}</td>
+                                            @endforeach
+                                        </tr>
+                                    @endforeach
+                                </tbody>
+                            </table>
+                        </div>
+
+                        @if($preview['has_more_batches'])
+                            <div class="px-3 py-3 border-top bg-light small text-muted">
+                                After you approve this batch, the next 50 rows from the same file will load automatically.
+                            </div>
+                        @endif
                     </div>
-                </div>
                 @endif
             </div>
         </div>
@@ -170,30 +214,38 @@
     }
 </style>
 <script>
-    const dropZone  = document.getElementById('dropZone');
+    const dropZone = document.getElementById('dropZone');
     const fileInput = document.getElementById('fileInput');
-    const fileInfo  = document.getElementById('fileInfo');
-    const fileName  = document.getElementById('fileName');
+    const fileInfo = document.getElementById('fileInfo');
+    const fileName = document.getElementById('fileName');
 
-    dropZone.addEventListener('click', () => fileInput.click());
+    if (dropZone && fileInput) {
+        dropZone.addEventListener('click', () => fileInput.click());
 
-    fileInput.addEventListener('change', function() {
-        if (this.files[0]) {
-            fileName.textContent = this.files[0].name;
-            fileInfo.style.display = 'block';
-        }
-    });
+        fileInput.addEventListener('change', function () {
+            if (this.files[0]) {
+                fileName.textContent = this.files[0].name;
+                fileInfo.style.display = 'block';
+            }
+        });
 
-    dropZone.addEventListener('dragover', e => { e.preventDefault(); dropZone.classList.add('dragover'); });
-    dropZone.addEventListener('dragleave', () => dropZone.classList.remove('dragover'));
-    dropZone.addEventListener('drop', function(e) {
-        e.preventDefault();
-        dropZone.classList.remove('dragover');
-        fileInput.files = e.dataTransfer.files;
-        if (fileInput.files[0]) {
-            fileName.textContent = fileInput.files[0].name;
-            fileInfo.style.display = 'block';
-        }
-    });
+        dropZone.addEventListener('dragover', (e) => {
+            e.preventDefault();
+            dropZone.classList.add('dragover');
+        });
+
+        dropZone.addEventListener('dragleave', () => dropZone.classList.remove('dragover'));
+
+        dropZone.addEventListener('drop', function (e) {
+            e.preventDefault();
+            dropZone.classList.remove('dragover');
+            fileInput.files = e.dataTransfer.files;
+
+            if (fileInput.files[0]) {
+                fileName.textContent = fileInput.files[0].name;
+                fileInfo.style.display = 'block';
+            }
+        });
+    }
 </script>
 @endpush

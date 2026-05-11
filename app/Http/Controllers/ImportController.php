@@ -6,6 +6,7 @@ use App\Models\Student;
 use App\Models\Subject;
 use App\Models\Teacher;
 use Illuminate\Http\Request;
+use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\File;
 use Illuminate\Support\Str;
@@ -15,13 +16,14 @@ use PhpOffice\PhpSpreadsheet\Shared\Date as ExcelDate;
 
 class ImportController extends Controller
 {
-    private const MAX_PREVIEW_ROWS = 25;
+    private const BATCH_SIZE = 50;
 
     private array $schemas = [
         'students' => [
             'label' => 'Students',
             'columns' => ['reg_no', 'full_name', 'email', 'phone', 'dob', 'gender', 'status', 'subjects'],
             'required' => ['reg_no', 'full_name', 'email', 'phone', 'dob'],
+            'unique' => ['reg_no', 'email'],
             'aliases' => [
                 'reg_no' => ['reg_no', 'reg no', 'regno', 'registration no', 'registration number', 'registration', 'student id', 'student no', 'id'],
                 'full_name' => ['full_name', 'full name', 'fullname', 'name', 'student name'],
@@ -37,6 +39,7 @@ class ImportController extends Controller
             'label' => 'Teachers',
             'columns' => ['employee_no', 'full_name', 'email', 'phone', 'specialization', 'department', 'employment_status', 'subjects'],
             'required' => ['employee_no', 'full_name', 'email', 'phone', 'specialization'],
+            'unique' => ['employee_no', 'email'],
             'aliases' => [
                 'employee_no' => ['employee_no', 'employee no', 'employeeno', 'emp no', 'employee number', 'employee id', 'teacher id', 'id', 'emp'],
                 'full_name' => ['full_name', 'full name', 'fullname', 'name', 'teacher name'],
@@ -52,6 +55,7 @@ class ImportController extends Controller
             'label' => 'Subjects',
             'columns' => ['subject_code', 'subject_name', 'description', 'category', 'is_active'],
             'required' => ['subject_code', 'subject_name'],
+            'unique' => ['subject_code'],
             'aliases' => [
                 'subject_code' => ['subject_code', 'subject code', 'subjectcode', 'code', 'course code', 'course_code', 'subject id', 'id'],
                 'subject_name' => ['subject_name', 'subject name', 'subjectname', 'name', 'subject', 'title', 'course', 'course name'],
@@ -81,6 +85,23 @@ class ImportController extends Controller
 
         $type = $request->data_type;
         $sheet = $this->readFirstSheet($request->file('file'));
+        $datasetCheck = $this->assessDatasetType($sheet);
+
+        if (!$datasetCheck['is_confident']) {
+            return back()->withErrors([
+                'file' => 'We could not clearly identify this file as Students, Teachers, or Subjects. Please check the uploaded headers and try again.',
+            ])->withInput();
+        }
+
+        if ($datasetCheck['detected_type'] !== $type) {
+            $expected = $this->schemas[$type]['label'];
+            $detected = $this->schemas[$datasetCheck['detected_type']]['label'];
+
+            return back()->withErrors([
+                'file' => "Wrong dataset selected. You chose {$expected}, but this file looks like {$detected} data. Please switch the import type and try again.",
+            ])->withInput();
+        }
+
         $normalized = $this->normalizeSheet($type, $sheet);
 
         if ($normalized['total_rows'] === 0) {
@@ -88,27 +109,23 @@ class ImportController extends Controller
         }
 
         $token = Str::uuid()->toString();
-        $dir = storage_path('app/import-previews');
-        File::ensureDirectoryExists($dir);
-        File::put($dir . DIRECTORY_SEPARATOR . $token . '.json', json_encode([
+        $payload = [
             'type' => $type,
-            'rows' => $normalized['rows'],
-        ]));
-
-        session(['import_preview' => [
-            'token' => $token,
-            'type' => $type,
-            'label' => $this->schemas[$type]['label'],
-            'columns' => $this->schemas[$type]['columns'],
-            'required' => $this->schemas[$type]['required'],
+            'file_name' => $request->file('file')->getClientOriginalName(),
             'headers' => $normalized['headers'],
             'mapping' => $normalized['mapping'],
-            'rows' => array_slice($normalized['rows'], 0, self::MAX_PREVIEW_ROWS),
+            'rows' => $normalized['rows'],
+            'offset' => 0,
             'total_rows' => $normalized['total_rows'],
             'valid_rows' => $normalized['valid_rows'],
             'skipped_rows' => $normalized['skipped_rows'],
-            'file_name' => $request->file('file')->getClientOriginalName(),
-        ]]);
+        ];
+
+        $dir = storage_path('app/import-previews');
+        File::ensureDirectoryExists($dir);
+        File::put($this->previewPath($token), json_encode($payload));
+
+        session(['import_preview' => $this->buildPreviewState($token, $payload)]);
 
         return redirect()->route('import.index');
     }
@@ -119,32 +136,99 @@ class ImportController extends Controller
             'token' => 'required|string',
         ]);
 
-        $path = storage_path('app/import-previews' . DIRECTORY_SEPARATOR . $request->token . '.json');
+        $path = $this->previewPath($request->token);
         if (!File::exists($path)) {
             return redirect()->route('import.index')->withErrors(['file' => 'Preview expired. Please upload the file again.']);
         }
 
         $payload = json_decode(File::get($path), true);
         $type = $payload['type'] ?? null;
-        $rows = $payload['rows'] ?? [];
-
         if (!isset($this->schemas[$type])) {
             return redirect()->route('import.index')->withErrors(['file' => 'Invalid import preview. Please upload the file again.']);
         }
 
-        $result = DB::transaction(fn () => $this->storeRows($type, $rows));
+        $offset = (int) ($payload['offset'] ?? 0);
+        $batchRows = array_slice($payload['rows'] ?? [], $offset, self::BATCH_SIZE);
+        if (empty($batchRows)) {
+            File::delete($path);
+            session()->forget('import_preview');
+            return redirect()->route('import.index')->withErrors(['file' => 'No batch rows found. Please upload the file again.']);
+        }
 
-        File::delete($path);
-        session()->forget('import_preview');
+        $result = DB::transaction(fn () => $this->storeRows($type, $batchRows));
+        $nextOffset = $offset + count($batchRows);
+
+        if ($nextOffset >= count($payload['rows'] ?? [])) {
+            File::delete($path);
+            session()->forget('import_preview');
+
+            return redirect()->route('import.index')
+                ->with('success', "Import complete. {$result['imported']} row(s) imported and {$result['skipped']} row(s) skipped in the final batch.");
+        }
+
+        $payload['offset'] = $nextOffset;
+        File::put($path, json_encode($payload));
+        session(['import_preview' => $this->buildPreviewState($request->token, $payload)]);
 
         return redirect()->route('import.index')
-            ->with('success', "{$result['imported']} {$this->schemas[$type]['label']} imported. {$result['skipped']} row(s) skipped.");
+            ->with('success', "Batch saved. {$result['imported']} row(s) imported and {$result['skipped']} row(s) skipped. Review the next 50 rows.");
+    }
+
+    public function clear(Request $request)
+    {
+        $token = $request->input('token') ?: data_get(session('import_preview'), 'token');
+
+        if ($token && File::exists($this->previewPath($token))) {
+            File::delete($this->previewPath($token));
+        }
+
+        session()->forget('import_preview');
+
+        return redirect()->route('import.index')->with('success', 'Import preview cleared. You can upload a new file now.');
+    }
+
+    private function buildPreviewState(string $token, array $payload): array
+    {
+        $rows = $payload['rows'] ?? [];
+        $offset = (int) ($payload['offset'] ?? 0);
+        $batchRows = array_slice($rows, $offset, self::BATCH_SIZE);
+        $batchValidRows = count(array_filter($batchRows, fn ($row) => !empty($row['_valid'])));
+        $batchSkippedRows = count($batchRows) - $batchValidRows;
+
+        return [
+            'token' => $token,
+            'type' => $payload['type'],
+            'label' => $this->schemas[$payload['type']]['label'],
+            'columns' => $this->schemas[$payload['type']]['columns'],
+            'required' => $this->schemas[$payload['type']]['required'],
+            'headers' => $payload['headers'] ?? [],
+            'mapping' => $payload['mapping'] ?? [],
+            'rows' => $batchRows,
+            'total_rows' => $payload['total_rows'] ?? count($rows),
+            'valid_rows' => $payload['valid_rows'] ?? 0,
+            'skipped_rows' => $payload['skipped_rows'] ?? 0,
+            'file_name' => $payload['file_name'] ?? 'uploaded file',
+            'offset' => $offset,
+            'batch_size' => count($batchRows),
+            'batch_valid_rows' => $batchValidRows,
+            'batch_skipped_rows' => $batchSkippedRows,
+            'batch_start' => $offset + 1,
+            'batch_end' => $offset + count($batchRows),
+            'has_more_batches' => ($offset + count($batchRows)) < count($rows),
+            'batch_number' => (int) floor($offset / self::BATCH_SIZE) + 1,
+            'batch_total' => (int) ceil(max(count($rows), 1) / self::BATCH_SIZE),
+        ];
+    }
+
+    private function previewPath(string $token): string
+    {
+        return storage_path('app/import-previews' . DIRECTORY_SEPARATOR . $token . '.json');
     }
 
     private function readFirstSheet($file): array
     {
         $sheets = Excel::toArray(new class implements ToArray {
-            public function array(array $array): array
+            public function array(array $array)
             {
                 return $array;
             }
@@ -162,8 +246,9 @@ class ImportController extends Controller
         $rows = [];
         $validRows = 0;
         $skippedRows = 0;
+        $seen = [];
 
-        foreach (array_slice($sheet, $headerIndex + 1) as $row) {
+        foreach (array_slice($sheet, $headerIndex + 1) as $rowIndex => $row) {
             if ($this->isEmptyRow($row)) {
                 continue;
             }
@@ -175,12 +260,18 @@ class ImportController extends Controller
             }
 
             $normalized = $this->coerceRow($type, $normalized);
-            $errors = $this->validatePreviewRow($type, $normalized);
+            $previewRowNumber = $headerIndex + 2 + $rowIndex;
+            $errors = $this->validatePreviewRow($type, $normalized, $seen, $previewRowNumber);
             $normalized['_errors'] = $errors;
             $normalized['_valid'] = empty($errors);
+            $normalized['_source_row'] = $previewRowNumber;
             $rows[] = $normalized;
 
-            empty($errors) ? $validRows++ : $skippedRows++;
+            if (empty($errors)) {
+                $validRows++;
+            } else {
+                $skippedRows++;
+            }
         }
 
         return [
@@ -190,6 +281,75 @@ class ImportController extends Controller
             'total_rows' => count($rows),
             'valid_rows' => $validRows,
             'skipped_rows' => $skippedRows,
+        ];
+    }
+
+    private function assessDatasetType(array $sheet): array
+    {
+        $scores = [];
+
+        foreach ($this->schemas as $type => $schema) {
+            $headerIndex = $this->detectHeaderRow($sheet, $schema);
+            $headers = array_map(fn ($value) => trim((string) $value), $sheet[$headerIndex] ?? []);
+            $matchedColumns = [];
+            $requiredMatches = 0;
+            $uniqueMatches = 0;
+
+            foreach ($schema['columns'] as $column) {
+                $aliases = array_map([$this, 'normalizeKey'], $schema['aliases'][$column] ?? []);
+
+                foreach ($headers as $header) {
+                    if (in_array($this->normalizeKey($header), $aliases, true)) {
+                        $matchedColumns[] = $column;
+
+                        if (in_array($column, $schema['required'], true)) {
+                            $requiredMatches++;
+                        }
+
+                        if (in_array($column, $schema['unique'] ?? [], true)) {
+                            $uniqueMatches++;
+                        }
+
+                        break;
+                    }
+                }
+            }
+
+            $scores[$type] = [
+                'matched_columns' => array_values(array_unique($matchedColumns)),
+                'matched_count' => count(array_unique($matchedColumns)),
+                'required_matches' => $requiredMatches,
+                'unique_matches' => $uniqueMatches,
+            ];
+        }
+
+        $bestType = null;
+        $bestScore = -1;
+        $bestRequired = -1;
+        $bestUnique = -1;
+
+        foreach ($scores as $type => $score) {
+            if (
+                $score['matched_count'] > $bestScore ||
+                ($score['matched_count'] === $bestScore && $score['required_matches'] > $bestRequired) ||
+                ($score['matched_count'] === $bestScore && $score['required_matches'] === $bestRequired && $score['unique_matches'] > $bestUnique)
+            ) {
+                $bestType = $type;
+                $bestScore = $score['matched_count'];
+                $bestRequired = $score['required_matches'];
+                $bestUnique = $score['unique_matches'];
+            }
+        }
+
+        $isConfident = $bestType !== null
+            && $bestScore >= 2
+            && $bestRequired >= 2
+            && $bestUnique >= 1;
+
+        return [
+            'detected_type' => $bestType,
+            'scores' => $scores,
+            'is_confident' => $isConfident,
         ];
     }
 
@@ -221,11 +381,14 @@ class ImportController extends Controller
     private function buildMapping(array $headers, array $schema): array
     {
         $mapping = [];
+
         foreach ($schema['columns'] as $position => $column) {
             $mapping[$column] = ['header' => null, 'index' => null];
+
             foreach ($headers as $index => $header) {
                 $normalizedHeader = $this->normalizeKey($header);
                 $aliases = array_map([$this, 'normalizeKey'], $schema['aliases'][$column] ?? []);
+
                 if (in_array($normalizedHeader, $aliases, true)) {
                     $mapping[$column] = ['header' => $header, 'index' => $index];
                     break;
@@ -246,17 +409,21 @@ class ImportController extends Controller
         $skipped = 0;
 
         foreach ($rows as $row) {
-            unset($row['_valid'], $row['_errors']);
-            if (!empty($this->validatePreviewRow($type, $row))) {
+            $cleanRow = $row;
+            unset($cleanRow['_valid'], $cleanRow['_errors'], $cleanRow['_source_row']);
+            $seen = [];
+
+            if (!empty($this->validatePreviewRow($type, $cleanRow, $seen, null, true))) {
                 $skipped++;
                 continue;
             }
 
             match ($type) {
-                'students' => $this->storeStudent($row),
-                'teachers' => $this->storeTeacher($row),
-                'subjects' => $this->storeSubject($row),
+                'students' => $this->storeStudent($cleanRow),
+                'teachers' => $this->storeTeacher($cleanRow),
+                'subjects' => $this->storeSubject($cleanRow),
             };
+
             $imported++;
         }
 
@@ -265,49 +432,43 @@ class ImportController extends Controller
 
     private function storeStudent(array $row): void
     {
-        $student = Student::updateOrCreate(
-            ['reg_no' => $row['reg_no']],
-            [
-                'full_name' => $row['full_name'],
-                'email' => $row['email'],
-                'phone' => $row['phone'],
-                'dob' => $row['dob'],
-                'gender' => $row['gender'] ?: null,
-                'status' => $row['status'] ?: 'Active',
-            ]
-        );
+        $student = Student::create([
+            'reg_no' => $row['reg_no'],
+            'full_name' => $row['full_name'],
+            'email' => $row['email'],
+            'phone' => $row['phone'],
+            'dob' => $row['dob'],
+            'gender' => $row['gender'] ?: null,
+            'status' => $row['status'] ?: 'Active',
+        ]);
 
         $this->syncSubjects($student, $row['subjects'] ?? '');
     }
 
     private function storeTeacher(array $row): void
     {
-        $teacher = Teacher::updateOrCreate(
-            ['employee_no' => $row['employee_no']],
-            [
-                'full_name' => $row['full_name'],
-                'email' => $row['email'],
-                'phone' => $row['phone'],
-                'specialization' => $row['specialization'],
-                'department' => $row['department'] ?: null,
-                'employment_status' => $row['employment_status'] ?: 'Full-time',
-            ]
-        );
+        $teacher = Teacher::create([
+            'employee_no' => $row['employee_no'],
+            'full_name' => $row['full_name'],
+            'email' => $row['email'],
+            'phone' => $row['phone'],
+            'specialization' => $row['specialization'],
+            'department' => $row['department'] ?: null,
+            'employment_status' => $row['employment_status'] ?: 'Full-time',
+        ]);
 
         $this->syncSubjects($teacher, $row['subjects'] ?? '');
     }
 
     private function storeSubject(array $row): void
     {
-        Subject::updateOrCreate(
-            ['subject_code' => $row['subject_code']],
-            [
-                'subject_name' => $row['subject_name'],
-                'description' => $row['description'] ?: null,
-                'category' => $row['category'] ?: null,
-                'is_active' => $this->toBoolean($row['is_active']),
-            ]
-        );
+        Subject::create([
+            'subject_code' => $row['subject_code'],
+            'subject_name' => $row['subject_name'],
+            'description' => $row['description'] ?: null,
+            'category' => $row['category'] ?: null,
+            'is_active' => $this->toBoolean($row['is_active']),
+        ]);
     }
 
     private function syncSubjects($model, string $subjects): void
@@ -344,10 +505,18 @@ class ImportController extends Controller
         return $row;
     }
 
-    private function validatePreviewRow(string $type, array $row): array
+    private function validatePreviewRow(
+        string $type,
+        array $row,
+        array &$seen = [],
+        ?int $sourceRow = null,
+        bool $checkDatabase = true
+    ): array
     {
+        $schema = $this->schemas[$type];
         $errors = [];
-        foreach ($this->schemas[$type]['required'] as $column) {
+
+        foreach ($schema['required'] as $column) {
             if (trim((string) ($row[$column] ?? '')) === '') {
                 $errors[] = $column . ' is required';
             }
@@ -355,6 +524,52 @@ class ImportController extends Controller
 
         if (!empty($row['email']) && !filter_var($row['email'], FILTER_VALIDATE_EMAIL)) {
             $errors[] = 'email is invalid';
+        }
+
+        foreach ($schema['unique'] ?? [] as $column) {
+            $value = trim((string) ($row[$column] ?? ''));
+            if ($value === '') {
+                continue;
+            }
+
+            $seenKey = strtolower($value);
+            if (isset($seen[$column][$seenKey])) {
+                $errors[] = $column . ' is duplicated in file (also row ' . $seen[$column][$seenKey] . ')';
+            } elseif ($sourceRow !== null) {
+                $seen[$column][$seenKey] = $sourceRow;
+            }
+        }
+
+        if ($checkDatabase) {
+            $errors = array_merge($errors, $this->databaseConflictErrors($type, $row));
+        }
+
+        return $errors;
+    }
+
+    private function databaseConflictErrors(string $type, array $row): array
+    {
+        $schema = $this->schemas[$type];
+        $modelClass = match ($type) {
+            'students' => Student::class,
+            'teachers' => Teacher::class,
+            'subjects' => Subject::class,
+        };
+
+        $errors = [];
+
+        foreach ($schema['unique'] ?? [] as $column) {
+            $value = trim((string) ($row[$column] ?? ''));
+            if ($value === '') {
+                continue;
+            }
+
+            $existing = $modelClass::query()->where($column, $value)->first();
+            if (!$existing) {
+                continue;
+            }
+
+            $errors[] = $column . ' already exists in database (' . $value . ')';
         }
 
         return $errors;
@@ -399,6 +614,7 @@ class ImportController extends Controller
     private function normalizeChoice($value, array $allowed): string
     {
         $normalized = $this->normalizeKey((string) $value);
+
         foreach ($allowed as $choice) {
             if ($normalized === $this->normalizeKey($choice)) {
                 return $choice;
