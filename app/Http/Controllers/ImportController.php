@@ -75,37 +75,41 @@ class ImportController extends Controller
 
     public function import(Request $request)
     {
-        $request->validate([
-            'data_type' => 'required|in:students,teachers,subjects',
-            'file' => 'required|file|mimes:csv,txt,xlsx,xls|max:10240',
-        ], [
-            'file.mimes' => 'Only CSV or Excel (.csv, .xlsx, .xls) files are allowed.',
-            'file.max' => 'File size must be under 10 MB.',
-        ]);
+        try {
+            $request->validate([
+                'data_type' => 'required|in:students,teachers,subjects',
+                'file' => 'required|file|mimes:csv,txt,xlsx,xls|max:10240',
+            ], [
+                'file.mimes' => 'Only CSV or Excel (.csv, .xlsx, .xls) files are allowed.',
+                'file.max' => 'File size must be under 10 MB.',
+            ]);
+        } catch (\Illuminate\Validation\ValidationException $exception) {
+            return $this->validationFailureResponse($request, $exception);
+        }
 
         $type = $request->data_type;
         $sheet = $this->readFirstSheet($request->file('file'));
         $datasetCheck = $this->assessDatasetType($sheet);
 
         if (!$datasetCheck['is_confident']) {
-            return back()->withErrors([
+            return $this->errorResponse($request, [
                 'file' => 'We could not clearly identify this file as Students, Teachers, or Subjects. Please check the uploaded headers and try again.',
-            ])->withInput();
+            ]);
         }
 
         if ($datasetCheck['detected_type'] !== $type) {
             $expected = $this->schemas[$type]['label'];
             $detected = $this->schemas[$datasetCheck['detected_type']]['label'];
 
-            return back()->withErrors([
+            return $this->errorResponse($request, [
                 'file' => "Wrong dataset selected. You chose {$expected}, but this file looks like {$detected} data. Please switch the import type and try again.",
-            ])->withInput();
+            ]);
         }
 
         $normalized = $this->normalizeSheet($type, $sheet);
 
         if ($normalized['total_rows'] === 0) {
-            return back()->withErrors(['file' => 'No importable rows were found in that file.']);
+            return $this->errorResponse($request, ['file' => 'No importable rows were found in that file.']);
         }
 
         $token = Str::uuid()->toString();
@@ -116,6 +120,8 @@ class ImportController extends Controller
             'mapping' => $normalized['mapping'],
             'rows' => $normalized['rows'],
             'offset' => 0,
+            'imported_so_far' => 0,
+            'skipped_so_far' => 0,
             'total_rows' => $normalized['total_rows'],
             'valid_rows' => $normalized['valid_rows'],
             'skipped_rows' => $normalized['skipped_rows'],
@@ -127,51 +133,86 @@ class ImportController extends Controller
 
         session(['import_preview' => $this->buildPreviewState($token, $payload)]);
 
-        return redirect()->route('import.index');
+        return $this->successResponse($request, [
+            'message' => 'Preview generated successfully.',
+            'redirect' => route('import.index'),
+        ]);
     }
 
     public function confirm(Request $request)
     {
-        $request->validate([
-            'token' => 'required|string',
-        ]);
+        try {
+            $request->validate([
+                'token' => 'required|string',
+            ]);
+        } catch (\Illuminate\Validation\ValidationException $exception) {
+            return $this->validationFailureResponse($request, $exception);
+        }
 
         $path = $this->previewPath($request->token);
         if (!File::exists($path)) {
-            return redirect()->route('import.index')->withErrors(['file' => 'Preview expired. Please upload the file again.']);
+            return $this->errorResponse($request, ['file' => 'Preview expired. Please upload the file again.'], route('import.index'));
         }
 
         $payload = json_decode(File::get($path), true);
         $type = $payload['type'] ?? null;
         if (!isset($this->schemas[$type])) {
-            return redirect()->route('import.index')->withErrors(['file' => 'Invalid import preview. Please upload the file again.']);
+            return $this->errorResponse($request, ['file' => 'Invalid import preview. Please upload the file again.'], route('import.index'));
+        }
+
+        $rows = $payload['rows'] ?? [];
+        if (empty($rows)) {
+            File::delete($path);
+            session()->forget('import_preview');
+            return $this->errorResponse($request, ['file' => 'No import rows found. Please upload the file again.'], route('import.index'));
         }
 
         $offset = (int) ($payload['offset'] ?? 0);
-        $batchRows = array_slice($payload['rows'] ?? [], $offset, self::BATCH_SIZE);
+        $batchRows = array_slice($rows, $offset, self::BATCH_SIZE);
         if (empty($batchRows)) {
             File::delete($path);
             session()->forget('import_preview');
-            return redirect()->route('import.index')->withErrors(['file' => 'No batch rows found. Please upload the file again.']);
+            return $this->errorResponse($request, ['file' => 'No remaining batch rows found. Please upload the file again.'], route('import.index'));
         }
 
         $result = DB::transaction(fn () => $this->storeRows($type, $batchRows));
-        $nextOffset = $offset + count($batchRows);
+        $payload['offset'] = $offset + count($batchRows);
+        $payload['imported_so_far'] = (int) ($payload['imported_so_far'] ?? 0) + $result['imported'];
+        $payload['skipped_so_far'] = (int) ($payload['skipped_so_far'] ?? 0) + $result['skipped'];
 
-        if ($nextOffset >= count($payload['rows'] ?? [])) {
+        $processedRows = min($payload['offset'], count($rows));
+        $totalRows = max(count($rows), 1);
+        $percent = (int) round(($processedRows / $totalRows) * 100);
+        $processedBatches = (int) ceil($processedRows / self::BATCH_SIZE);
+        $totalBatches = (int) ceil($totalRows / self::BATCH_SIZE);
+        $isComplete = $processedRows >= count($rows);
+
+        if ($isComplete) {
             File::delete($path);
             session()->forget('import_preview');
-
-            return redirect()->route('import.index')
-                ->with('success', "Import complete. {$result['imported']} row(s) imported and {$result['skipped']} row(s) skipped in the final batch.");
+        } else {
+            File::put($path, json_encode($payload));
+            session(['import_preview' => $this->buildPreviewState($request->token, $payload)]);
         }
 
-        $payload['offset'] = $nextOffset;
-        File::put($path, json_encode($payload));
-        session(['import_preview' => $this->buildPreviewState($request->token, $payload)]);
+        $message = $isComplete
+            ? "Import complete. {$payload['imported_so_far']} row(s) imported and {$payload['skipped_so_far']} row(s) skipped across {$totalBatches} automatic batch(es)."
+            : "Processed batch {$processedBatches} of {$totalBatches}.";
 
-        return redirect()->route('import.index')
-            ->with('success', "Batch saved. {$result['imported']} row(s) imported and {$result['skipped']} row(s) skipped. Review the next 50 rows.");
+        return $this->successResponse($request, [
+            'message' => $message,
+            'redirect' => route('import.index'),
+            'complete' => $isComplete,
+            'progress' => [
+                'percent' => $percent,
+                'processed_rows' => $processedRows,
+                'total_rows' => count($rows),
+                'imported_rows' => (int) ($payload['imported_so_far'] ?? 0),
+                'skipped_rows' => (int) ($payload['skipped_so_far'] ?? 0),
+                'current_batch' => min($processedBatches, $totalBatches),
+                'total_batches' => $totalBatches,
+            ],
+        ], $message);
     }
 
     public function clear(Request $request)
@@ -184,7 +225,53 @@ class ImportController extends Controller
 
         session()->forget('import_preview');
 
-        return redirect()->route('import.index')->with('success', 'Import preview cleared. You can upload a new file now.');
+        $message = 'Import preview cleared. You can upload a new file now.';
+
+        return $this->successResponse($request, [
+            'message' => $message,
+            'redirect' => route('import.index'),
+        ], $message);
+    }
+
+    private function successResponse(Request $request, array $payload, ?string $flashMessage = null)
+    {
+        if ($request->expectsJson() || $request->ajax()) {
+            return response()->json($payload);
+        }
+
+        $response = redirect()->to($payload['redirect'] ?? route('import.index'));
+
+        if ($flashMessage) {
+            $response->with('success', $flashMessage);
+        }
+
+        return $response;
+    }
+
+    private function errorResponse(Request $request, array $errors, ?string $redirect = null)
+    {
+        if ($request->expectsJson() || $request->ajax()) {
+            return response()->json([
+                'message' => reset($errors),
+                'errors' => $errors,
+            ], 422);
+        }
+
+        return redirect()->to($redirect ?? url()->previous())
+            ->withErrors($errors)
+            ->withInput();
+    }
+
+    private function validationFailureResponse(Request $request, \Illuminate\Validation\ValidationException $exception)
+    {
+        if ($request->expectsJson() || $request->ajax()) {
+            return response()->json([
+                'message' => $exception->getMessage(),
+                'errors' => $exception->errors(),
+            ], 422);
+        }
+
+        throw $exception;
     }
 
     private function buildPreviewState(string $token, array $payload): array
@@ -194,6 +281,7 @@ class ImportController extends Controller
         $batchRows = array_slice($rows, $offset, self::BATCH_SIZE);
         $batchValidRows = count(array_filter($batchRows, fn ($row) => !empty($row['_valid'])));
         $batchSkippedRows = count($batchRows) - $batchValidRows;
+        $batchTotal = (int) ceil(max(count($rows), 1) / self::BATCH_SIZE);
 
         return [
             'token' => $token,
@@ -207,16 +295,17 @@ class ImportController extends Controller
             'total_rows' => $payload['total_rows'] ?? count($rows),
             'valid_rows' => $payload['valid_rows'] ?? 0,
             'skipped_rows' => $payload['skipped_rows'] ?? 0,
+            'imported_so_far' => $payload['imported_so_far'] ?? 0,
+            'skipped_so_far' => $payload['skipped_so_far'] ?? 0,
             'file_name' => $payload['file_name'] ?? 'uploaded file',
-            'offset' => $offset,
             'batch_size' => count($batchRows),
             'batch_valid_rows' => $batchValidRows,
             'batch_skipped_rows' => $batchSkippedRows,
-            'batch_start' => $offset + 1,
+            'batch_start' => count($batchRows) > 0 ? $offset + 1 : 0,
             'batch_end' => $offset + count($batchRows),
             'has_more_batches' => ($offset + count($batchRows)) < count($rows),
             'batch_number' => (int) floor($offset / self::BATCH_SIZE) + 1,
-            'batch_total' => (int) ceil(max(count($rows), 1) / self::BATCH_SIZE),
+            'batch_total' => $batchTotal,
         ];
     }
 

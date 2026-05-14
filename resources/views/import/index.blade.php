@@ -29,7 +29,28 @@
                     </div>
                 @endif
 
-                <form action="{{ route('import.store') }}" method="POST" enctype="multipart/form-data" class="mb-4">
+                <div id="importProgressPanel" class="alert alert-info rounded-3 mb-4 d-none" role="status" aria-live="polite">
+                    <div class="d-flex justify-content-between align-items-center mb-2">
+                        <strong id="importProgressTitle">Uploading file...</strong>
+                        <span id="importProgressPercent">0%</span>
+                    </div>
+                    <div class="progress" style="height: 10px;">
+                        <div
+                            id="importProgressBar"
+                            class="progress-bar progress-bar-striped progress-bar-animated"
+                            role="progressbar"
+                            style="width: 0%;"
+                            aria-valuemin="0"
+                            aria-valuemax="100"
+                            aria-valuenow="0"
+                        ></div>
+                    </div>
+                    <div id="importProgressNote" class="small mt-2 text-secondary">Preparing upload...</div>
+                </div>
+
+                <div id="importAjaxError" class="alert alert-danger rounded-3 mb-4 d-none"></div>
+
+                <form id="previewImportForm" action="{{ route('import.store') }}" method="POST" enctype="multipart/form-data" class="mb-4">
                     @csrf
 
                     <div class="mb-4">
@@ -90,33 +111,59 @@
                         <div class="d-flex flex-wrap gap-3 justify-content-between align-items-center px-3 py-3 border-bottom" style="background:#f8faff;">
                             <div>
                                 <h6 class="mb-1 fw-semibold">{{ $preview['label'] }} Preview</h6>
-                                <div class="text-muted small">
-                                    {{ $preview['file_name'] }} - {{ $preview['total_rows'] }} row(s) found -
-                                    {{ $preview['valid_rows'] }} ready - {{ $preview['skipped_rows'] }} need attention
+                                <div class="text-muted small mb-2">
+                                    {{ $preview['file_name'] }}
                                 </div>
-                                <div class="small mt-1 text-primary fw-semibold">
-                                    Batch {{ $preview['batch_number'] }} of {{ $preview['batch_total'] }}
-                                    - Rows {{ $preview['batch_start'] }}-{{ $preview['batch_end'] }}
-                                    - {{ $preview['batch_valid_rows'] }} ready in this batch
-                                    - {{ $preview['batch_skipped_rows'] }} skipped in this batch
+                                <div class="d-flex flex-wrap gap-2 small">
+                                    <span class="summary-pill">
+                                        <strong>{{ $preview['total_rows'] }}</strong> rows
+                                    </span>
+                                    <span class="summary-pill summary-pill-success">
+                                        <strong>{{ $preview['valid_rows'] }}</strong> ready
+                                    </span>
+                                    <span class="summary-pill summary-pill-warning">
+                                        <strong>{{ $preview['skipped_rows'] }}</strong> skipped
+                                    </span>
+                                    <span class="summary-pill">
+                                        Preview {{ $preview['batch_start'] }}-{{ $preview['batch_end'] }}
+                                    </span>
                                 </div>
                             </div>
                             <div class="d-flex flex-wrap gap-2">
-                                <form action="{{ route('import.clear') }}" method="POST">
+                                <form id="clearImportForm" action="{{ route('import.clear') }}" method="POST">
                                     @csrf
                                     <input type="hidden" name="token" value="{{ $preview['token'] }}">
                                     <button type="submit" class="btn btn-outline-secondary fw-semibold">
                                         <i class="bi bi-trash3 me-1"></i>Clear Import
                                     </button>
                                 </form>
-                                <form action="{{ route('import.confirm') }}" method="POST">
+                                <form id="confirmImportForm" action="{{ route('import.confirm') }}" method="POST">
                                     @csrf
                                     <input type="hidden" name="token" value="{{ $preview['token'] }}">
-                                    <button type="submit" class="btn btn-dark fw-semibold" {{ $preview['batch_valid_rows'] === 0 ? 'disabled' : '' }}>
-                                        <i class="bi bi-database-check me-1"></i>{{ $preview['has_more_batches'] ? 'Approve & Import This Batch' : 'Approve & Finish Import' }}
+                                    <button type="submit" class="btn btn-dark fw-semibold" {{ $preview['valid_rows'] === 0 ? 'disabled' : '' }}>
+                                        <i class="bi bi-database-check me-1"></i>Import All Valid Rows
                                     </button>
                                 </form>
                             </div>
+                        </div>
+
+                        <div id="inlineImportProgressPanel" class="px-3 py-3 border-bottom bg-white d-none" role="status" aria-live="polite">
+                            <div class="d-flex justify-content-between align-items-center mb-2">
+                                <strong id="inlineImportProgressTitle">Import progress</strong>
+                                <span id="inlineImportProgressPercent">0%</span>
+                            </div>
+                            <div class="progress" style="height: 10px;">
+                                <div
+                                    id="inlineImportProgressBar"
+                                    class="progress-bar progress-bar-striped progress-bar-animated"
+                                    role="progressbar"
+                                    style="width: 0%;"
+                                    aria-valuemin="0"
+                                    aria-valuemax="100"
+                                    aria-valuenow="0"
+                                ></div>
+                            </div>
+                            <div id="inlineImportProgressNote" class="small mt-2 text-secondary">Waiting to start import...</div>
                         </div>
 
                         <div class="px-3 py-2 border-bottom bg-white">
@@ -164,7 +211,7 @@
 
                         @if($preview['has_more_batches'])
                             <div class="px-3 py-3 border-top bg-light small text-muted">
-                                After you approve this batch, the next 50 rows from the same file will load automatically.
+                                This preview shows the first {{ $preview['batch_size'] }} rows. When you start import, the backend will process the full file automatically in 50-row batches.
                             </div>
                         @endif
                     </div>
@@ -212,12 +259,302 @@
         color:#3730a3;
         font-size:.76rem;
     }
+    .summary-pill {
+        display: inline-flex;
+        align-items: center;
+        gap: 4px;
+        padding: 5px 10px;
+        border-radius: 999px;
+        background: #f3f4f6;
+        color: #374151;
+        font-size: .78rem;
+        font-weight: 500;
+    }
+    .summary-pill-success {
+        background: #dcfce7;
+        color: #166534;
+    }
+    .summary-pill-warning {
+        background: #fee2e2;
+        color: #991b1b;
+    }
 </style>
 <script>
     const dropZone = document.getElementById('dropZone');
     const fileInput = document.getElementById('fileInput');
     const fileInfo = document.getElementById('fileInfo');
     const fileName = document.getElementById('fileName');
+    const previewImportForm = document.getElementById('previewImportForm');
+    const confirmImportForm = document.getElementById('confirmImportForm');
+    const clearImportForm = document.getElementById('clearImportForm');
+    const progressPanel = document.getElementById('importProgressPanel');
+    const progressBar = document.getElementById('importProgressBar');
+    const progressPercent = document.getElementById('importProgressPercent');
+    const progressTitle = document.getElementById('importProgressTitle');
+    const progressNote = document.getElementById('importProgressNote');
+    const inlineProgressPanel = document.getElementById('inlineImportProgressPanel');
+    const inlineProgressBar = document.getElementById('inlineImportProgressBar');
+    const inlineProgressPercent = document.getElementById('inlineImportProgressPercent');
+    const inlineProgressTitle = document.getElementById('inlineImportProgressTitle');
+    const inlineProgressNote = document.getElementById('inlineImportProgressNote');
+    const ajaxError = document.getElementById('importAjaxError');
+
+    function setProgressState({ title, percent, note, style = 'info', indeterminate = false }) {
+        const applyState = (panel, bar, label, titleNode, noteNode, panelClass) => {
+            if (!panel || !bar || !label || !titleNode || !noteNode) {
+                return;
+            }
+
+            panel.className = panelClass;
+            panel.classList.remove('d-none');
+            titleNode.textContent = title;
+            label.textContent = indeterminate ? '' : `${percent}%`;
+            noteNode.textContent = note;
+            bar.style.width = indeterminate ? '100%' : `${percent}%`;
+            bar.setAttribute('aria-valuenow', indeterminate ? '100' : String(percent));
+            bar.classList.toggle('progress-bar-animated', true);
+            bar.classList.toggle('progress-bar-striped', true);
+        };
+
+        applyState(progressPanel, progressBar, progressPercent, progressTitle, progressNote, `alert alert-${style} rounded-3 mb-4`);
+        applyState(inlineProgressPanel, inlineProgressBar, inlineProgressPercent, inlineProgressTitle, inlineProgressNote, 'px-3 py-3 border-bottom bg-white');
+    }
+
+    function hideProgressState() {
+        if (progressPanel) {
+            progressPanel.classList.add('d-none');
+        }
+
+        if (inlineProgressPanel) {
+            inlineProgressPanel.classList.add('d-none');
+        }
+    }
+
+    function showAjaxError(message) {
+        ajaxError.textContent = message;
+        ajaxError.classList.remove('d-none');
+    }
+
+    function hideAjaxError() {
+        ajaxError.classList.add('d-none');
+        ajaxError.textContent = '';
+    }
+
+    function firstErrorMessage(payload, fallback) {
+        if (payload && payload.errors) {
+            const firstKey = Object.keys(payload.errors)[0];
+            const value = payload.errors[firstKey];
+
+            if (Array.isArray(value) && value.length > 0) {
+                return value[0];
+            }
+
+            if (typeof value === 'string') {
+                return value;
+            }
+        }
+
+        return payload?.message || fallback;
+    }
+
+    function redirectToResponse(payload) {
+        if (payload?.redirect) {
+            window.location.href = payload.redirect;
+            return;
+        }
+
+        window.location.reload();
+    }
+
+    function submitWithAjax(form, options) {
+        if (!form) return;
+
+        hideAjaxError();
+        const xhr = new XMLHttpRequest();
+        const formData = new FormData(form);
+
+        xhr.open(form.method || 'POST', form.action, true);
+        xhr.setRequestHeader('Accept', 'application/json');
+        xhr.setRequestHeader('X-Requested-With', 'XMLHttpRequest');
+
+        if (options.uploadProgress) {
+            setProgressState({
+                title: 'Uploading file...',
+                percent: 0,
+                note: 'Starting upload...',
+                style: 'info',
+            });
+
+            xhr.upload.addEventListener('progress', (event) => {
+                if (!event.lengthComputable) {
+                    return;
+                }
+
+                const percent = Math.min(100, Math.round((event.loaded / event.total) * 100));
+                setProgressState({
+                    title: 'Uploading file...',
+                    percent,
+                    note: `${percent}% uploaded. Please wait while we prepare the preview.`,
+                    style: 'info',
+                });
+            });
+        } else {
+            setProgressState({
+                title: options.processingTitle,
+                percent: 100,
+                note: options.processingNote,
+                style: 'warning',
+                indeterminate: true,
+            });
+        }
+
+        xhr.onreadystatechange = function () {
+            if (xhr.readyState !== XMLHttpRequest.DONE) {
+                return;
+            }
+
+            let payload = null;
+
+            try {
+                payload = xhr.responseText ? JSON.parse(xhr.responseText) : null;
+            } catch (error) {
+                payload = null;
+            }
+
+            if (xhr.status >= 200 && xhr.status < 300) {
+                if (options.uploadProgress) {
+                    setProgressState({
+                        title: 'Upload complete',
+                        percent: 100,
+                        note: 'Preview is ready. Redirecting...',
+                        style: 'success',
+                    });
+                } else {
+                    setProgressState({
+                        title: 'Import complete',
+                        percent: 100,
+                        note: payload?.message || 'Import finished successfully. Redirecting...',
+                        style: 'success',
+                    });
+                }
+
+                window.setTimeout(() => redirectToResponse(payload), 350);
+                return;
+            }
+
+            hideProgressState();
+            showAjaxError(firstErrorMessage(payload, 'Something went wrong. Please try again.'));
+        };
+
+        xhr.onerror = function () {
+            hideProgressState();
+            showAjaxError('Network error. Please check the connection and try again.');
+        };
+
+        xhr.send(formData);
+    }
+
+    function runImportBatches() {
+        if (!confirmImportForm) return;
+
+        hideAjaxError();
+        const submitButton = confirmImportForm.querySelector('button[type="submit"]');
+        const clearButton = clearImportForm?.querySelector('button[type="submit"]');
+
+        const sendNextBatch = () => {
+            const xhr = new XMLHttpRequest();
+            const formData = new FormData(confirmImportForm);
+
+            xhr.open(confirmImportForm.method || 'POST', confirmImportForm.action, true);
+            xhr.setRequestHeader('Accept', 'application/json');
+            xhr.setRequestHeader('X-Requested-With', 'XMLHttpRequest');
+
+            xhr.onreadystatechange = function () {
+                if (xhr.readyState !== XMLHttpRequest.DONE) {
+                    return;
+                }
+
+                let payload = null;
+
+                try {
+                    payload = xhr.responseText ? JSON.parse(xhr.responseText) : null;
+                } catch (error) {
+                    payload = null;
+                }
+
+                if (xhr.status < 200 || xhr.status >= 300) {
+                    hideProgressState();
+                    if (submitButton) {
+                        submitButton.disabled = false;
+                        submitButton.innerHTML = '<i class="bi bi-database-check me-1"></i>Import All Valid Rows';
+                    }
+                    if (clearButton) {
+                        clearButton.disabled = false;
+                    }
+                    showAjaxError(firstErrorMessage(payload, 'Import failed while processing a batch. Please try again.'));
+                    return;
+                }
+
+                const progress = payload?.progress || {};
+                const percent = Number.isFinite(progress.percent) ? progress.percent : 0;
+                const currentBatch = progress.current_batch ?? 0;
+                const totalBatches = progress.total_batches ?? 0;
+                const processedRows = progress.processed_rows ?? 0;
+                const totalRows = progress.total_rows ?? 0;
+                const importedRows = progress.imported_rows ?? 0;
+                const skippedRows = progress.skipped_rows ?? 0;
+
+                setProgressState({
+                    title: payload?.complete ? 'Import complete' : `Importing batch ${currentBatch} of ${totalBatches}`,
+                    percent,
+                    note: `${processedRows} of ${totalRows} rows processed. Imported ${importedRows}, skipped ${skippedRows}.`,
+                    style: payload?.complete ? 'success' : 'warning',
+                    indeterminate: false,
+                });
+
+                if (payload?.complete) {
+                    window.setTimeout(() => redirectToResponse(payload), 500);
+                    return;
+                }
+
+                window.setTimeout(sendNextBatch, 150);
+            };
+
+            xhr.onerror = function () {
+                hideProgressState();
+                if (submitButton) submitButton.disabled = false;
+                if (clearButton) clearButton.disabled = false;
+                showAjaxError('Network error while processing import batches. Please try again.');
+            };
+
+            xhr.send(formData);
+        };
+
+        setProgressState({
+            title: 'Starting import...',
+            percent: 0,
+            note: 'Preparing the first database batch.',
+            style: 'warning',
+            indeterminate: false,
+        });
+
+        if (submitButton) {
+            submitButton.disabled = true;
+            submitButton.innerHTML = '<i class="bi bi-hourglass-split me-1"></i>Importing...';
+        }
+
+        if (clearButton) {
+            clearButton.disabled = true;
+        }
+
+        if (inlineProgressPanel) {
+            inlineProgressPanel.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+        } else if (progressPanel) {
+            progressPanel.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+        }
+
+        sendNextBatch();
+    }
 
     if (dropZone && fileInput) {
         dropZone.addEventListener('click', () => fileInput.click());
@@ -245,6 +582,33 @@
                 fileName.textContent = fileInput.files[0].name;
                 fileInfo.style.display = 'block';
             }
+        });
+    }
+
+    if (previewImportForm) {
+        previewImportForm.addEventListener('submit', function (event) {
+            event.preventDefault();
+            submitWithAjax(previewImportForm, { uploadProgress: true });
+        });
+    }
+
+    if (confirmImportForm) {
+        confirmImportForm.addEventListener('submit', function (event) {
+            event.preventDefault();
+            runImportBatches();
+        });
+    }
+
+    if (clearImportForm) {
+        clearImportForm.addEventListener('submit', function () {
+            hideAjaxError();
+            setProgressState({
+                title: 'Clearing import...',
+                percent: 100,
+                note: 'Removing the current preview.',
+                style: 'secondary',
+                indeterminate: true,
+            });
         });
     }
 </script>
