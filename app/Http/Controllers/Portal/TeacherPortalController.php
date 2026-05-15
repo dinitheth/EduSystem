@@ -1,0 +1,264 @@
+<?php
+namespace App\Http\Controllers\Portal;
+
+use App\Http\Controllers\Controller;
+use App\Models\{Teacher, Assignment, AssignmentSubmission, Student, Mcq, McqQuestion, McqOption, McqSubmission, Mark, Subject, CourseContent};
+use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Storage;
+
+class TeacherPortalController extends Controller
+{
+    private function teacher() {
+        return Teacher::with('subjects')->findOrFail(session('teacher_id'));
+    }
+
+    // ── Dashboard ─────────────────────────────────────────────────
+    public function dashboard() {
+        $teacher     = $this->teacher();
+        $assignments = Assignment::with('subject')->where('teacher_id', $teacher->id)->latest()->take(5)->get();
+        $mcqs        = Mcq::with('subject')->where('teacher_id', $teacher->id)->latest()->take(5)->get();
+        $results     = McqSubmission::whereHas('mcq', fn($q) => $q->where('teacher_id', $teacher->id))
+            ->with(['student','mcq'])->latest()->take(10)->get();
+        return view('portal.teacher.dashboard', compact('teacher','assignments','mcqs','results'));
+    }
+
+    // ── Students list ─────────────────────────────────────────────
+    public function students() {
+        $teacher  = $this->teacher();
+        $students = Student::where('class', $teacher->class)
+            ->with('subjects')->orderBy('full_name')->get();
+        return view('portal.teacher.students', compact('teacher','students'));
+    }
+
+    // ── Courses / Content ─────────────────────────────────────────
+    public function courses() {
+        $teacher  = $this->teacher();
+        $subjects = $teacher->subjects()->orderBy('subject_name')->get();
+        return view('portal.teacher.courses', compact('teacher','subjects'));
+    }
+
+    public function courseContent(Subject $subject) {
+        $teacher = $this->teacher();
+        if (!$teacher->subjects->contains($subject->id)) abort(403);
+        $contents = CourseContent::where('subject_id', $subject->id)
+            ->with('teacher')->orderBy('sort_order')->orderBy('created_at')
+            ->get()->map(function ($c) {
+                return [
+                    'id'            => $c->id,
+                    'type'          => $c->type,
+                    'title'         => $c->title,
+                    'description'   => $c->description,
+                    'content_text'  => $c->content_text,
+                    'url'           => $c->url,
+                    'file_url'      => $c->file_path ? asset('storage/' . $c->file_path) : null,
+                    'youtube_id'    => $c->youtube_id,
+                    'youtube_embed' => $c->youtube_embed,
+                    'teacher'       => $c->teacher->full_name ?? '',
+                    'created_at'    => $c->created_at->format('d M Y'),
+                    'mine'          => $c->teacher_id === session('teacher_id'),
+                ];
+            });
+        return response()->json([
+            'subject'  => ['name' => $subject->subject_name, 'code' => $subject->subject_code],
+            'contents' => $contents,
+        ]);
+    }
+
+    public function storeCourseContent(Request $request, Subject $subject) {
+        $teacher = $this->teacher();
+        if (!$teacher->subjects->contains($subject->id)) abort(403);
+        $request->validate([
+            'type'         => 'required|in:text,pdf,video,link,youtube',
+            'title'        => 'required|string|max:255',
+            'description'  => 'nullable|string',
+            'content_text' => 'nullable|string',
+            'url'          => 'nullable|url',
+            'file'         => 'nullable|file|max:51200',
+        ]);
+        $filePath = null;
+        if ($request->hasFile('file')) {
+            $folder = match($request->type) {
+                'pdf'   => 'course-content/pdfs',
+                'video' => 'course-content/videos',
+                default => 'course-content/files',
+            };
+            $filePath = $request->file('file')->store($folder, 'public');
+        }
+        CourseContent::create([
+            'subject_id'   => $subject->id,
+            'teacher_id'   => $teacher->id,
+            'type'         => $request->type,
+            'title'        => $request->title,
+            'description'  => $request->description,
+            'content_text' => $request->content_text,
+            'file_path'    => $filePath,
+            'url'          => $request->url,
+            'sort_order'   => CourseContent::where('subject_id', $subject->id)->count(),
+        ]);
+        return response()->json(['success' => true, 'message' => 'Content added successfully!']);
+    }
+
+    public function deleteCourseContent(Subject $subject, CourseContent $content) {
+        $teacher = $this->teacher();
+        if ($content->teacher_id !== $teacher->id) abort(403);
+        if ($content->file_path) Storage::disk('public')->delete($content->file_path);
+        $content->delete();
+        return response()->json(['success' => true]);
+    }
+
+    // ── Assignments ───────────────────────────────────────────────
+    public function assignments() {
+        $teacher     = $this->teacher();
+        $assignments = Assignment::with('subject')
+            ->withCount('submissions')
+            ->where('teacher_id', $teacher->id)->latest()->get();
+        $subjects    = $teacher->subjects()->orderBy('subject_name')->get();
+        return view('portal.teacher.assignments', compact('teacher','assignments','subjects'));
+    }
+
+    public function storeAssignment(Request $request) {
+        $teacher = $this->teacher();
+        $request->validate([
+            'title'       => 'required|string|max:255',
+            'subject_id'  => 'nullable|exists:subjects,id',
+            'description' => 'nullable|string',
+            'due_date'    => 'nullable|date',
+            'file'        => 'nullable|file|mimes:pdf|max:20480',
+        ]);
+        if ($request->subject_id && !$teacher->subjects->pluck('id')->contains($request->subject_id))
+            return back()->with('error', 'Invalid subject selection.');
+        $path = null;
+        if ($request->hasFile('file'))
+            $path = $request->file('file')->store('assignments', 'public');
+        Assignment::create([
+            'teacher_id'  => $teacher->id,
+            'subject_id'  => $request->subject_id,
+            'class'       => $teacher->class,
+            'title'       => $request->title,
+            'description' => $request->description,
+            'file_path'   => $path,
+            'due_date'    => $request->due_date,
+        ]);
+        return back()->with('success', 'Assignment posted successfully!');
+    }
+
+    public function viewSubmissions(Assignment $assignment) {
+        $teacher = $this->teacher();
+        if ($assignment->teacher_id !== $teacher->id) abort(403);
+        $submissions = AssignmentSubmission::where('assignment_id', $assignment->id)
+            ->with('student')->latest('submitted_at')->get();
+        return view('portal.teacher.assignment_submissions', compact('teacher','assignment','submissions'));
+    }
+
+    public function gradeSubmission(Request $request, Assignment $assignment, AssignmentSubmission $submission) {
+        $teacher = $this->teacher();
+        if ($assignment->teacher_id !== $teacher->id) abort(403);
+        $request->validate([
+            'marks'     => 'required|numeric|min:0',
+            'max_marks' => 'required|integer|min:1|max:1000',
+            'feedback'  => 'nullable|string|max:1000',
+        ]);
+        $submission->update([
+            'marks'     => $request->marks,
+            'max_marks' => $request->max_marks,
+            'feedback'  => $request->feedback,
+            'status'    => 'graded',
+            'graded_by' => $teacher->id,
+            'graded_at' => now(),
+        ]);
+        return back()->with('success', 'Marks saved for '.$submission->student->full_name.'!');
+    }
+
+    public function downloadAllSubmissions(Assignment $assignment) {
+        $teacher = $this->teacher();
+        if ($assignment->teacher_id !== $teacher->id) abort(403);
+        $submissions = AssignmentSubmission::where('assignment_id', $assignment->id)
+            ->with('student')->whereNotNull('file_path')->get();
+        if ($submissions->isEmpty())
+            return back()->with('error', 'No file submissions to download.');
+        $zipName = 'submissions_'.str()->slug($assignment->title).'_'.now()->format('YmdHis').'.zip';
+        $zipPath = storage_path('app/temp/'.$zipName);
+        if (!is_dir(storage_path('app/temp'))) mkdir(storage_path('app/temp'), 0755, true);
+        $zip = new \ZipArchive();
+        if ($zip->open($zipPath, \ZipArchive::CREATE | \ZipArchive::OVERWRITE) !== true)
+            return back()->with('error', 'Could not create ZIP file.');
+        foreach ($submissions as $sub) {
+            $filePath = Storage::disk('public')->path($sub->file_path);
+            if (file_exists($filePath)) {
+                $ext  = pathinfo($filePath, PATHINFO_EXTENSION);
+                $name = str()->slug($sub->student->full_name).'_'.$sub->student->reg_no.'.'.$ext;
+                $zip->addFile($filePath, $name);
+            }
+        }
+        $zip->close();
+        return response()->download($zipPath, $zipName)->deleteFileAfterSend();
+    }
+
+    // ── MCQs ──────────────────────────────────────────────────────
+    public function mcqs() {
+        $teacher = $this->teacher();
+        $mcqs    = Mcq::with(['subject','submissions'])->where('teacher_id', $teacher->id)->latest()->get();
+        return view('portal.teacher.mcqs', compact('teacher','mcqs'));
+    }
+
+    public function createMcq() {
+        $teacher  = $this->teacher();
+        $subjects = $teacher->subjects()->orderBy('subject_name')->get();
+        return view('portal.teacher.mcq_create', compact('teacher','subjects'));
+    }
+
+    public function storeMcq(Request $request) {
+        $teacher = $this->teacher();
+        $request->validate([
+            'title'                 => 'required|string|max:255',
+            'subject_id'            => 'nullable|exists:subjects,id',
+            'time_limit'            => 'nullable|string',
+            'questions'             => 'required|array|min:1',
+            'questions.*.question'  => 'required|string',
+            'questions.*.options'   => 'required|array|min:2',
+            'questions.*.options.*' => 'required|string',
+            'questions.*.correct'   => 'required|integer',
+        ]);
+        if ($request->subject_id && !$teacher->subjects->pluck('id')->contains($request->subject_id))
+            return back()->with('error', 'Invalid subject selection.');
+
+        $totalMinutes = null; $expiresAt = null;
+        if ($request->time_limit) {
+            [$h, $m]      = array_map('intval', explode(':', $request->time_limit));
+            $totalMinutes = $h * 60 + $m;
+            if ($totalMinutes > 0) $expiresAt = now()->addMinutes($totalMinutes);
+        }
+
+        $mcq = Mcq::create([
+            'teacher_id' => $teacher->id,
+            'subject_id' => $request->subject_id,
+            'class'      => $teacher->class,
+            'title'      => $request->title,
+            'time_limit' => $totalMinutes,
+            'expires_at' => $expiresAt,
+        ]);
+        foreach ($request->questions as $i => $qData) {
+            $question = McqQuestion::create(['mcq_id' => $mcq->id, 'question' => $qData['question'], 'order' => $i]);
+            foreach ($qData['options'] as $j => $optText)
+                McqOption::create(['question_id' => $question->id, 'option_text' => $optText, 'is_correct' => ($j == $qData['correct'])]);
+        }
+        return redirect()->route('teacher.mcqs')->with('success', 'MCQ published successfully!');
+    }
+
+    // ── Results & Marks ──────────────────────────────────────────
+    public function results(Mcq $mcq) {
+        $teacher = $this->teacher();
+        if ($mcq->teacher_id !== $teacher->id) abort(403);
+        $submissions = $mcq->submissions()->with('student')->latest()->get();
+        return view('portal.teacher.mcq_results', compact('teacher','mcq','submissions'));
+    }
+
+    public function marks() {
+        $teacher  = $this->teacher();
+        $myMcqIds = Mcq::where('teacher_id', $teacher->id)->pluck('id');
+        $marks    = Mark::with(['student','subject'])
+            ->whereIn('mcq_submission_id', McqSubmission::whereIn('mcq_id', $myMcqIds)->pluck('id'))
+            ->latest()->get();
+        return view('portal.teacher.marks', compact('teacher','marks'));
+    }
+}

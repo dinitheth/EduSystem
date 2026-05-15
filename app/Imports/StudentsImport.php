@@ -46,6 +46,7 @@ class StudentsImport implements ToCollection, WithHeadingRow, SkipsEmptyRows
             $email     = $this->find($row, ['email','emailaddress','mail','email_address']);
             $phone     = $this->find($row, ['phone','phonenumber','mobile','contact','telephone','contactno']);
             $dob       = $this->find($row, ['dob','dateofbirth','birthdate','date_of_birth','birthday']);
+            $class     = $this->find($row, ['class','studentclass','classname','classlevel']);
             $subjects  = $this->find($row, ['subjects','subject','subjectnames','subjectlist','assignedsubjects']);
 
             if (!$reg_no || !$full_name || !$email) continue;
@@ -57,6 +58,7 @@ class StudentsImport implements ToCollection, WithHeadingRow, SkipsEmptyRows
                     'email'     => $email,
                     'phone'     => $phone ?? '',
                     'dob'       => $dob ? date('Y-m-d', strtotime($dob)) : null,
+                    'class'     => $class && in_array(strtoupper($class), ['A','B','C','D']) ? strtoupper($class) : null,
                 ]
             );
 

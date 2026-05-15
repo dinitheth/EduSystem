@@ -6,7 +6,7 @@ use Illuminate\Database\Eloquent\Model;
 
 class Teacher extends Model
 {
-    protected $fillable = ['employee_no','full_name','email','phone','specialization','department','employment_status'];
+    protected $fillable = ['employee_no','full_name','email','phone','specialization','department','employment_status','class'];
 
     public function subjects()
     {

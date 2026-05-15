@@ -25,6 +25,7 @@ class TeacherController extends Controller
             'specialization'    => 'required|string|max:255',
             'department'        => 'nullable|string|max:255',
             'employment_status' => 'nullable|in:Full-time,Part-time,Contract',
+            'class'             => 'nullable|in:A,B,C,D',
             'subject_ids'       => 'nullable|array',
             'subject_ids.*'     => 'exists:subjects,id',
         ]);
@@ -37,6 +38,7 @@ class TeacherController extends Controller
             'specialization'    => $request->specialization,
             'department'        => $request->department,
             'employment_status' => $request->employment_status ?? 'Full-time',
+            'class'             => $request->class,
         ]);
         $teacher->subjects()->sync($request->input('subject_ids', []));
 
@@ -53,6 +55,7 @@ class TeacherController extends Controller
             'specialization'    => 'required|string|max:255',
             'department'        => 'nullable|string|max:255',
             'employment_status' => 'nullable|in:Full-time,Part-time,Contract',
+            'class'             => 'nullable|in:A,B,C,D',
             'subject_ids'       => 'nullable|array',
             'subject_ids.*'     => 'exists:subjects,id',
         ]);
@@ -65,6 +68,7 @@ class TeacherController extends Controller
             'specialization'    => $request->specialization,
             'department'        => $request->department,
             'employment_status' => $request->employment_status ?? 'Full-time',
+            'class'             => $request->class,
         ]);
         $teacher->subjects()->sync($request->input('subject_ids', []));
 

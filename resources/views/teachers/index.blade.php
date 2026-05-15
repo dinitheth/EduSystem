@@ -38,7 +38,7 @@
                     <tr>
                         <th class="text-center" style="width:44px;">#</th>
                         <th>Emp No</th><th>Full Name</th><th>Email</th><th>Phone</th>
-                        <th>Specialization</th><th>Department</th><th>Status</th><th>Subjects</th>
+                        <th>Specialization</th><th>Department</th><th>Class</th><th>Status</th><th>Subjects</th>
                         <th class="text-center" style="width:100px;">Actions</th>
                     </tr>
                 </thead>
@@ -53,6 +53,13 @@
                         <td>{{ $t->specialization }}</td>
                         <td>{{ $t->department ?? '—' }}</td>
                         <td>
+                            @if($t->class)
+                                <span class="badge fw-semibold" style="background:#e0f2fe;color:#0369a1;font-size:.75rem;letter-spacing:.5px;">Class {{ $t->class }}</span>
+                            @else
+                                <span class="text-muted">—</span>
+                            @endif
+                        </td>
+                        <td>
                             <span class="badge rounded-pill" style="background:#e0f2fe;color:#0369a1;font-size:.75rem;">
                                 {{ $t->employment_status ?? 'Full-time' }}
                             </span>
@@ -62,7 +69,7 @@
                             <button type="button" class="btn btn-sm btn-outline-warning btn-action me-1 edit-btn" title="Edit"
                                 data-id="{{ $t->id }}" data-employee_no="{{ $t->employee_no }}" data-full_name="{{ $t->full_name }}"
                                 data-email="{{ $t->email }}" data-phone="{{ $t->phone }}" data-specialization="{{ $t->specialization }}"
-                                data-department="{{ $t->department }}" data-employment_status="{{ $t->employment_status ?? 'Full-time' }}"
+                                data-department="{{ $t->department }}" data-employment_status="{{ $t->employment_status ?? 'Full-time' }}" data-class="{{ $t->class }}"
                                 data-subjects="{{ $t->subjects->pluck('id')->join(',') }}"
                                 data-bs-toggle="modal" data-bs-target="#teacherModal"><i class="bi bi-pencil"></i></button>
                             <button type="button" class="btn btn-sm btn-outline-danger btn-action delete-trigger"
@@ -117,6 +124,14 @@
                     <option value="Part-time" {{ old('employment_status')=='Part-time'?'selected':'' }}>Part-time</option>
                     <option value="Contract" {{ old('employment_status')=='Contract'?'selected':'' }}>Contract</option>
                   </select></div>
+                <div class="col-6"><label class="form-label"><i class="bi bi-grid-3x3-gap me-1 text-info"></i>Class</label>
+                   <select id="class" name="class" class="form-select">
+                     <option value="">Select Class...</option>
+                     <option value="A" {{ old('class')=='A'?'selected':'' }}>Class A</option>
+                     <option value="B" {{ old('class')=='B'?'selected':'' }}>Class B</option>
+                     <option value="C" {{ old('class')=='C'?'selected':'' }}>Class C</option>
+                     <option value="D" {{ old('class')=='D'?'selected':'' }}>Class D</option>
+                   </select></div>
               </div>
             </div>
             <div class="col-md-6">
@@ -305,6 +320,7 @@ document.querySelectorAll('.edit-btn').forEach(btn=>{
         document.getElementById('specialization').value=this.dataset.specialization;
         document.getElementById('department').value=this.dataset.department||'';
         document.getElementById('employment_status').value=this.dataset.employment_status||'Full-time';
+        document.getElementById('class').value=this.dataset.class||'';
         selectedSubjectIds=new Set();
         if(this.dataset.subjects) this.dataset.subjects.split(',').forEach(id=>{if(id)selectedSubjectIds.add(parseInt(id));});
         renderSubjectTags();
@@ -318,6 +334,7 @@ document.getElementById('teacherModal').addEventListener('hidden.bs.modal',funct
     tSubmitBtn.innerHTML='<i class="bi bi-person-check me-1"></i>Add Teacher';
     tForm.reset();selectedSubjectIds=new Set();renderSubjectTags();
     document.getElementById('subjectDropdown').style.display='none';
+    document.getElementById('class').value='';
 });
 document.addEventListener('click',function(e){
     if(!e.target.closest('#subjectSearch')&&!e.target.closest('#subjectDropdown'))

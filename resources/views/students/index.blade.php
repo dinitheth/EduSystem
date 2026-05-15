@@ -37,7 +37,7 @@
                     <tr>
                         <th class="text-center" style="width:44px;">#</th>
                         <th>Reg No</th><th>Full Name</th><th>Email</th><th>Phone</th>
-                        <th>Date of Birth</th><th>Gender</th><th>Status</th><th>Subjects</th>
+                        <th>Date of Birth</th><th>Gender</th><th>Class</th><th>Status</th><th>Subjects</th>
                         <th class="text-center" style="width:100px;">Actions</th>
                     </tr>
                 </thead>
@@ -52,6 +52,13 @@
                         <td>{{ $s->dob ? \Carbon\Carbon::parse($s->dob)->format('d M Y') : '—' }}</td>
                         <td>@if($s->gender)<span class="badge rounded-pill" style="background:#f1f5f9;color:#475569;">{{ $s->gender }}</span>@else<span class="text-muted">—</span>@endif</td>
                         <td>
+                            @if($s->class)
+                                <span class="badge fw-semibold" style="background:#eef2ff;color:#6366f1;font-size:.75rem;letter-spacing:.5px;">Class {{ $s->class }}</span>
+                            @else
+                                <span class="text-muted">—</span>
+                            @endif
+                        </td>
+                        <td>
                             <span class="badge rounded-pill" style="background:{{ $s->status==='Active'?'#d1fae5':'#fee2e2' }};color:{{ $s->status==='Active'?'#065f46':'#991b1b' }};">
                                 {{ $s->status ?? 'Active' }}
                             </span>
@@ -61,7 +68,7 @@
                             <button type="button" class="btn btn-sm btn-outline-warning btn-action me-1 edit-btn" title="Edit"
                                 data-id="{{ $s->id }}" data-reg_no="{{ $s->reg_no }}" data-full_name="{{ $s->full_name }}"
                                 data-email="{{ $s->email }}" data-phone="{{ $s->phone }}" data-dob="{{ $s->dob }}"
-                                data-gender="{{ $s->gender }}" data-status="{{ $s->status ?? 'Active' }}"
+                                data-gender="{{ $s->gender }}" data-status="{{ $s->status ?? 'Active' }}" data-class="{{ $s->class }}"
                                 data-subjects="{{ $s->subjects->pluck('id')->join(',') }}"
                                 data-bs-toggle="modal" data-bs-target="#studentModal"><i class="bi bi-pencil"></i></button>
                             <button type="button" class="btn btn-sm btn-outline-danger btn-action delete-trigger"
@@ -118,6 +125,14 @@
                   <select id="status" name="status" class="form-select">
                     <option value="Active" {{ old('status','Active')=='Active'?'selected':'' }}>Active</option>
                     <option value="Inactive" {{ old('status')=='Inactive'?'selected':'' }}>Inactive</option>
+                  </select></div>
+                <div class="col-6"><label class="form-label"><i class="bi bi-grid-3x3-gap me-1 text-primary"></i>Class</label>
+                  <select id="class" name="class" class="form-select">
+                    <option value="">Select Class...</option>
+                    <option value="A" {{ old('class')=='A'?'selected':'' }}>Class A</option>
+                    <option value="B" {{ old('class')=='B'?'selected':'' }}>Class B</option>
+                    <option value="C" {{ old('class')=='C'?'selected':'' }}>Class C</option>
+                    <option value="D" {{ old('class')=='D'?'selected':'' }}>Class D</option>
                   </select></div>
               </div>
             </div>
@@ -246,6 +261,7 @@ $studentsForJs = $students->map(function($s) {
         'dob'        => $s->dob ?? '',
         'gender'     => $s->gender ?? '',
         'status'     => $s->status ?? 'Active',
+        'class'      => $s->class ?? '',
         'subjects'   => $s->subjects->pluck('subject_name')->join(', '),
         'created_at' => $s->created_at ? $s->created_at->format('Y-m-d') : '',
         'updated_at' => $s->updated_at ? $s->updated_at->format('Y-m-d') : '',
@@ -399,6 +415,7 @@ document.querySelectorAll('.edit-btn').forEach(btn=>{
         document.getElementById('dob').value=this.dataset.dob;
         document.getElementById('gender').value=this.dataset.gender||'';
         document.getElementById('status').value=this.dataset.status||'Active';
+        document.getElementById('class').value=this.dataset.class||'';
         selectedSubjectIds=new Set();
         if(this.dataset.subjects) this.dataset.subjects.split(',').forEach(id=>{if(id)selectedSubjectIds.add(parseInt(id));});
         renderSubjectTags();
@@ -413,6 +430,7 @@ document.getElementById('studentModal').addEventListener('hidden.bs.modal',funct
     sSubmitBtn.innerHTML='<i class="bi bi-person-check me-1"></i>Register Student';
     sForm.reset(); selectedSubjectIds=new Set(); renderSubjectTags();
     document.getElementById('subjectDropdown').style.display='none';
+    document.getElementById('class').value='';
 });
 
 document.addEventListener('click',function(e){

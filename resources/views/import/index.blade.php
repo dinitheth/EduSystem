@@ -221,6 +221,18 @@
     </div>
 </div>
 
+<div class="toast-container position-fixed top-0 end-0 p-3" style="z-index: 1085;">
+    <div id="importStatusToast" class="toast border-0 shadow-lg" role="alert" aria-live="assertive" aria-atomic="true">
+        <div class="toast-header border-0">
+            <i id="importToastIcon" class="bi bi-info-circle-fill me-2"></i>
+            <strong id="importToastTitle" class="me-auto">Notification</strong>
+            <small id="importToastTime">Now</small>
+            <button type="button" class="btn-close" data-bs-dismiss="toast"></button>
+        </div>
+        <div id="importToastMessage" class="toast-body"></div>
+    </div>
+</div>
+
 @endsection
 
 @push('scripts')
@@ -278,6 +290,21 @@
         background: #fee2e2;
         color: #991b1b;
     }
+    #importStatusToast.toast-success .toast-header,
+    #importStatusToast.toast-success .toast-body {
+        background: #ecfdf5;
+        color: #065f46;
+    }
+    #importStatusToast.toast-danger .toast-header,
+    #importStatusToast.toast-danger .toast-body {
+        background: #fef2f2;
+        color: #991b1b;
+    }
+    #importStatusToast.toast-info .toast-header,
+    #importStatusToast.toast-info .toast-body {
+        background: #eff6ff;
+        color: #1d4ed8;
+    }
 </style>
 <script>
     const dropZone = document.getElementById('dropZone');
@@ -298,6 +325,36 @@
     const inlineProgressTitle = document.getElementById('inlineImportProgressTitle');
     const inlineProgressNote = document.getElementById('inlineImportProgressNote');
     const ajaxError = document.getElementById('importAjaxError');
+    const importToastEl = document.getElementById('importStatusToast');
+    const importToastTitle = document.getElementById('importToastTitle');
+    const importToastMessage = document.getElementById('importToastMessage');
+    const importToastIcon = document.getElementById('importToastIcon');
+    let importToast = null;
+
+    function showImportToast(type, title, message) {
+        if (!importToastEl || !window.bootstrap) {
+            return;
+        }
+
+        importToastEl.classList.remove('toast-success', 'toast-danger', 'toast-info');
+        importToastEl.classList.add(`toast-${type}`);
+        importToastTitle.textContent = title;
+        importToastMessage.textContent = message;
+
+        const iconMap = {
+            success: 'bi-check-circle-fill',
+            danger: 'bi-exclamation-triangle-fill',
+            info: 'bi-info-circle-fill'
+        };
+
+        importToastIcon.className = `bi ${iconMap[type] || iconMap.info} me-2`;
+
+        if (!importToast) {
+            importToast = new bootstrap.Toast(importToastEl, { delay: 4500 });
+        }
+
+        importToast.show();
+    }
 
     function setProgressState({ title, percent, note, style = 'info', indeterminate = false }) {
         const applyState = (panel, bar, label, titleNode, noteNode, panelClass) => {
@@ -333,6 +390,7 @@
     function showAjaxError(message) {
         ajaxError.textContent = message;
         ajaxError.classList.remove('d-none');
+        showImportToast('danger', 'Import failed', message);
     }
 
     function hideAjaxError() {
@@ -429,6 +487,7 @@
                         note: 'Preview is ready. Redirecting...',
                         style: 'success',
                     });
+                    showImportToast('success', 'Preview ready', 'The file preview was generated successfully.');
                 } else {
                     setProgressState({
                         title: 'Import complete',
@@ -436,6 +495,7 @@
                         note: payload?.message || 'Import finished successfully. Redirecting...',
                         style: 'success',
                     });
+                    showImportToast('success', 'Import complete', payload?.message || 'Import finished successfully.');
                 }
 
                 window.setTimeout(() => redirectToResponse(payload), 350);
@@ -446,10 +506,10 @@
             showAjaxError(firstErrorMessage(payload, 'Something went wrong. Please try again.'));
         };
 
-        xhr.onerror = function () {
-            hideProgressState();
-            showAjaxError('Network error. Please check the connection and try again.');
-        };
+            xhr.onerror = function () {
+                hideProgressState();
+                showAjaxError('Network error. Please check the connection and try again.');
+            };
 
         xhr.send(formData);
     }
@@ -611,5 +671,13 @@
             });
         });
     }
+
+    @if(session('success'))
+        showImportToast('success', 'Import notification', @json(session('success')));
+    @endif
+
+    @if($errors->any())
+        showImportToast('danger', 'Import notification', @json($errors->first()));
+    @endif
 </script>
 @endpush

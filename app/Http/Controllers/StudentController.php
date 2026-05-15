@@ -25,6 +25,7 @@ class StudentController extends Controller
             'dob'           => 'required|date|before:today',
             'gender'        => 'nullable|in:Male,Female,Other',
             'status'        => 'nullable|in:Active,Inactive',
+            'class'         => 'nullable|in:A,B,C,D',
             'subject_ids'   => 'nullable|array',
             'subject_ids.*' => 'exists:subjects,id',
         ]);
@@ -37,6 +38,7 @@ class StudentController extends Controller
             'dob'       => $request->dob,
             'gender'    => $request->gender,
             'status'    => $request->status ?? 'Active',
+            'class'     => $request->class,
         ]);
         $student->subjects()->sync($request->input('subject_ids', []));
 
@@ -53,6 +55,7 @@ class StudentController extends Controller
             'dob'           => 'required|date|before:today',
             'gender'        => 'nullable|in:Male,Female,Other',
             'status'        => 'nullable|in:Active,Inactive',
+            'class'         => 'nullable|in:A,B,C,D',
             'subject_ids'   => 'nullable|array',
             'subject_ids.*' => 'exists:subjects,id',
         ]);
@@ -65,6 +68,7 @@ class StudentController extends Controller
             'dob'       => $request->dob,
             'gender'    => $request->gender,
             'status'    => $request->status ?? 'Active',
+            'class'     => $request->class,
         ]);
         $student->subjects()->sync($request->input('subject_ids', []));
 
