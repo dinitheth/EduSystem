@@ -28,7 +28,10 @@
   </div>
 </div>
 
-<form action="{{ route('student.mcq.submit', $mcq->id) }}" method="POST" id="mcqForm">
+<form action="{{ route('student.mcq.submit', $mcq->id) }}" method="POST" id="mcqForm"
+  data-confirm-title="Submit MCQ Answers"
+  data-confirm-message="Submit your answers now? You cannot change them after submission."
+  data-confirm-text="Submit Answers">
   @csrf
   @foreach($mcq->questions as $i => $q)
   <div class="section-card mb-3">
@@ -51,7 +54,7 @@
   @endforeach
 
   <div class="d-flex gap-3">
-    <button type="submit" class="btn fw-semibold px-5" style="background:linear-gradient(135deg,#0f4c75,#0d7377);color:#fff;border-radius:12px;padding:12px 32px;" onclick="return confirm('Submit your answers? You cannot change them after submission.')">
+    <button type="submit" class="btn fw-semibold px-5" style="background:linear-gradient(135deg,#0f4c75,#0d7377);color:#fff;border-radius:12px;padding:12px 32px;">
       <i class="bi bi-check-circle me-2"></i>Submit Answers
     </button>
     <a href="{{ route('student.mcqs') }}" class="btn btn-outline-secondary" style="border-radius:12px;padding:12px 24px;">Cancel</a>

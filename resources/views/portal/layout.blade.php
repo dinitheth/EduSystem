@@ -51,6 +51,9 @@ body{font-family:'Inter',sans-serif;background:#f1f5f9;min-height:100vh;}
 .notification-item-title{font-size:.82rem;font-weight:800;margin-bottom:3px;}
 .notification-item-body{font-size:.74rem;color:#64748b;line-height:1.35;}
 .notification-item-time{font-size:.68rem;color:#94a3b8;margin-top:5px;}
+.portal-confirm-icon{width:48px;height:48px;border-radius:14px;background:#eef2ff;color:#4338ca;display:flex;align-items:center;justify-content:center;font-size:1.35rem;flex-shrink:0;}
+.portal-confirm-title{font-size:1rem;font-weight:800;color:#111827;margin:0;}
+.portal-confirm-message{font-size:.88rem;color:#64748b;margin:4px 0 0;line-height:1.45;}
 </style>
 @stack('styles')
 </head>
@@ -132,6 +135,26 @@ body{font-family:'Inter',sans-serif;background:#f1f5f9;min-height:100vh;}
   </div>
 </div>
 
+<div class="modal fade" id="portalConfirmModal" tabindex="-1" aria-hidden="true">
+  <div class="modal-dialog modal-dialog-centered" style="max-width:420px;">
+    <div class="modal-content border-0 shadow-lg" style="border-radius:16px;overflow:hidden;">
+      <div class="modal-body p-4">
+        <div class="d-flex gap-3">
+          <div class="portal-confirm-icon" id="portalConfirmIcon"><i class="bi bi-question-circle-fill"></i></div>
+          <div>
+            <h5 class="portal-confirm-title" id="portalConfirmTitle">Confirm Action</h5>
+            <p class="portal-confirm-message" id="portalConfirmMessage">Are you sure you want to continue?</p>
+          </div>
+        </div>
+      </div>
+      <div class="modal-footer border-0 pt-0 px-4 pb-4 gap-2">
+        <button type="button" class="btn btn-outline-secondary px-4" data-bs-dismiss="modal">Cancel</button>
+        <button type="button" class="btn px-4 fw-semibold" id="portalConfirmYes" style="background:#4338ca;color:#fff;">Confirm</button>
+      </div>
+    </div>
+  </div>
+</div>
+
 <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
 <script>
 (function tick(){
@@ -140,6 +163,60 @@ body{font-family:'Inter',sans-serif;background:#f1f5f9;min-height:100vh;}
   if(el) el.textContent=d.toLocaleDateString('en-GB',{weekday:'short',day:'2-digit',month:'short',year:'numeric'})+' · '+d.toLocaleTimeString('en-GB',{hour:'2-digit',minute:'2-digit',second:'2-digit'});
   setTimeout(tick,1000);
 })();
+
+window.portalConfirm = function(options = {}) {
+  const modalEl = document.getElementById('portalConfirmModal');
+  const titleEl = document.getElementById('portalConfirmTitle');
+  const messageEl = document.getElementById('portalConfirmMessage');
+  const confirmBtn = document.getElementById('portalConfirmYes');
+  const iconEl = document.getElementById('portalConfirmIcon');
+  const modal = bootstrap.Modal.getOrCreateInstance(modalEl);
+
+  titleEl.textContent = options.title || 'Confirm Action';
+  messageEl.textContent = options.message || 'Are you sure you want to continue?';
+  confirmBtn.textContent = options.confirmText || 'Confirm';
+  confirmBtn.style.background = options.danger ? '#dc2626' : '#4338ca';
+  iconEl.style.background = options.danger ? '#fee2e2' : '#eef2ff';
+  iconEl.style.color = options.danger ? '#dc2626' : '#4338ca';
+  iconEl.innerHTML = options.danger ? '<i class="bi bi-exclamation-triangle-fill"></i>' : '<i class="bi bi-question-circle-fill"></i>';
+
+  return new Promise((resolve) => {
+    const cleanup = () => {
+      confirmBtn.removeEventListener('click', onConfirm);
+      modalEl.removeEventListener('hidden.bs.modal', onHidden);
+    };
+    const onConfirm = () => {
+      cleanup();
+      modal.hide();
+      resolve(true);
+    };
+    const onHidden = () => {
+      cleanup();
+      resolve(false);
+    };
+    confirmBtn.addEventListener('click', onConfirm, { once: true });
+    modalEl.addEventListener('hidden.bs.modal', onHidden, { once: true });
+    modal.show();
+  });
+};
+
+document.addEventListener('submit', async function(event) {
+  const form = event.target.closest('form[data-confirm-message]');
+  if (!form || form.dataset.confirmed === '1') return;
+
+  event.preventDefault();
+  const ok = await window.portalConfirm({
+    title: form.dataset.confirmTitle || 'Confirm Action',
+    message: form.dataset.confirmMessage,
+    confirmText: form.dataset.confirmText || 'Confirm',
+    danger: form.dataset.confirmDanger === 'true',
+  });
+
+  if (ok) {
+    form.dataset.confirmed = '1';
+    form.requestSubmit ? form.requestSubmit() : form.submit();
+  }
+});
 </script>
 @stack('scripts')
 </body>

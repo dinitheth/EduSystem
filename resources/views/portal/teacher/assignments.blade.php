@@ -119,7 +119,11 @@
                   data-due-date="{{ $a->due_date ? \Carbon\Carbon::parse($a->due_date)->format('Y-m-d') : '' }}">
                   <i class="bi bi-pencil me-1"></i>Edit
                 </button>
-                <form action="{{ route('teacher.assignments.delete', $a->id) }}" method="POST" onsubmit="return confirm('Delete this assignment and its submissions?')" class="d-inline">
+                <form action="{{ route('teacher.assignments.delete', $a->id) }}" method="POST" class="d-inline"
+                  data-confirm-title="Delete Assignment"
+                  data-confirm-message="Delete this assignment and all of its submissions? This action cannot be undone."
+                  data-confirm-text="Delete"
+                  data-confirm-danger="true">
                   @csrf
                   @method('DELETE')
                   <button type="submit" class="btn btn-sm fw-semibold" style="background:#fee2e2;color:#b91c1c;border-radius:8px;font-size:.72rem;padding:4px 10px;">

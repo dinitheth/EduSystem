@@ -296,9 +296,15 @@ function renderContentList(contents) {
 
 function esc(str) { const d=document.createElement('div');d.textContent=str||'';return d.innerHTML; }
 
-function deleteContent(id, e) {
+async function deleteContent(id, e) {
   e.stopPropagation();
-  if (!confirm('Remove this content item?')) return;
+  const ok = await window.portalConfirm({
+    title: 'Remove Content',
+    message: 'Remove this content item from the course?',
+    confirmText: 'Remove',
+    danger: true
+  });
+  if (!ok) return;
   const base = currentContentUrl.replace('/content', '');
   fetch(base + '/content/' + id, {
     method:'DELETE',
