@@ -62,6 +62,7 @@ Route::prefix('teacher')->middleware('teacher.auth')->group(function () {
     Route::get('/assignments/{assignment}/submissions',   [TeacherPortalController::class, 'viewSubmissions'])->name('teacher.assignment.submissions');
     Route::post('/assignments/{assignment}/submissions/{submission}/grade', [TeacherPortalController::class, 'gradeSubmission'])->name('teacher.assignment.grade');
     Route::get('/assignments/{assignment}/submissions/download-all', [TeacherPortalController::class, 'downloadAllSubmissions'])->name('teacher.assignment.submissions.download');
+    Route::get('/assignments/{assignment}/submissions/excel', [TeacherPortalController::class, 'downloadSubmissionsExcel'])->name('teacher.assignment.submissions.excel');
     Route::get('/mcqs',                                   [TeacherPortalController::class, 'mcqs'])->name('teacher.mcqs');
     Route::get('/mcqs/create',                            [TeacherPortalController::class, 'createMcq'])->name('teacher.mcq.create');
     Route::post('/mcqs',                                  [TeacherPortalController::class, 'storeMcq'])->name('teacher.mcq.store');

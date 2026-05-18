@@ -26,16 +26,16 @@
 @endphp
 
 {{-- Score Card --}}
-<div class="hello-banner mb-4" style="background:linear-gradient(135deg,{{ $pct>=60?'#0f4c75, #0d7377':'#7f1d1d, #dc2626' }});">
+<div class="hello-banner mb-4" style="background:linear-gradient(135deg,{{ $pct>=60?'#ecfdf5, #d1fae5':'#fef2f2, #fee2e2' }});border:1px solid {{ $pct>=60?'#a7f3d0':'#fecaca' }};">
   <div class="d-flex align-items-center gap-4">
-    <div style="width:96px;height:96px;border-radius:50%;background:rgba(255,255,255,.15);display:flex;flex-direction:column;align-items:center;justify-content:center;">
+    <div style="width:96px;height:96px;border-radius:50%;background:{{ $pct>=60?'#a7f3d0':'#fecaca' }};display:flex;flex-direction:column;align-items:center;justify-content:center;color:{{ $pct>=60?'#065f46':'#991b1b' }};">
       <div style="font-size:1.8rem;font-weight:900;line-height:1;">{{ $pct }}%</div>
-      <div style="font-size:.75rem;opacity:.8;">Score</div>
+      <div style="font-size:.75rem;font-weight:700;">Score</div>
     </div>
     <div>
-      <h2 style="font-size:1.5rem;">{{ $submission->score }} / {{ $submission->total }} Correct</h2>
-      <p style="opacity:.85;">Grade: <strong>{{ $grade }}</strong> &nbsp;·&nbsp; {{ $submission->mcq->title }}</p>
-      <p style="opacity:.75;font-size:.8rem;">Submitted: {{ $submission->submitted_at ? \Carbon\Carbon::parse($submission->submitted_at)->format('d M Y, H:i') : '' }}</p>
+      <h2 style="font-size:1.5rem;color:{{ $pct>=60?'#065f46':'#991b1b' }};font-weight:800;">{{ $submission->score }} / {{ $submission->total }} Correct</h2>
+      <p style="color:#374151;margin-bottom:4px;">Grade: <strong style="color:{{ $pct>=60?'#059669':'#dc2626' }};">{{ $grade }}</strong> &nbsp;·&nbsp; {{ $submission->mcq->title }}</p>
+      <p style="color:#6b7280;font-size:.8rem;margin:0;">Submitted: {{ $submission->submitted_at ? \Carbon\Carbon::parse($submission->submitted_at)->format('d M Y, H:i') : '' }}</p>
     </div>
   </div>
 </div>

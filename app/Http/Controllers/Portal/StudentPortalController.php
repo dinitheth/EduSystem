@@ -80,9 +80,9 @@ class StudentPortalController extends Controller
         $assignments = Assignment::with(['teacher','subject'])
             ->where('class', $student->class)
             ->latest()->get();
-        $submitted = AssignmentSubmission::where('student_id', $student->id)
-            ->pluck('assignment_id')->toArray();
-        return view('portal.student.assignments', compact('student','assignments','submitted'));
+        $submissions = AssignmentSubmission::where('student_id', $student->id)
+            ->get()->keyBy('assignment_id');
+        return view('portal.student.assignments', compact('student','assignments','submissions'));
     }
 
     public function submitAssignment(Request $request, Assignment $assignment) {

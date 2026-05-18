@@ -194,6 +194,14 @@ class TeacherPortalController extends Controller
         return response()->download($zipPath, $zipName)->deleteFileAfterSend();
     }
 
+    public function downloadSubmissionsExcel(Assignment $assignment) {
+        $teacher = $this->teacher();
+        if ($assignment->teacher_id !== $teacher->id) abort(403);
+        
+        $fileName = 'submissions_'.str()->slug($assignment->title).'_'.now()->format('YmdHis').'.xlsx';
+        return \Excel::download(new \App\Exports\AssignmentSubmissionsExport($assignment->id), $fileName);
+    }
+
     // ── MCQs ──────────────────────────────────────────────────────
     public function mcqs() {
         $teacher = $this->teacher();

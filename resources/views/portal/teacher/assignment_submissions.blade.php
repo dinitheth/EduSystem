@@ -55,6 +55,9 @@
         <i class="bi bi-file-zip me-1"></i>Download All (ZIP)
       </a>
       @endif
+      <a href="{{ route('teacher.assignment.submissions.excel', $assignment->id) }}" class="btn btn-sm fw-semibold" style="background:linear-gradient(135deg,#16a34a,#15803d);color:#fff;border-radius:9px;font-size:.75rem;padding:7px 16px;">
+        <i class="bi bi-file-earmark-excel me-1"></i>Export Excel
+      </a>
     </div>
   </div>
 

@@ -30,7 +30,10 @@
 <h5 class="fw-bold mb-3">Assignments for Class {{ session('student_class') }}</h5>
 <div class="row g-3">
   @forelse($assignments as $a)
-  @php $done = in_array($a->id, $submitted); @endphp
+  @php 
+    $sub = $submissions[$a->id] ?? null;
+    $done = $sub !== null; 
+  @endphp
   <div class="col-md-6 col-lg-4">
     <div class="section-card h-100">
       <div class="p-4">
@@ -88,7 +91,29 @@
           <span class="done-badge" style="font-size:.78rem;padding:6px 16px;">
             <i class="bi bi-check-circle-fill"></i>Assignment Submitted
           </span>
-          <p style="font-size:.7rem;color:#9ca3af;margin-top:4px;">Your teacher will grade this soon.</p>
+          @if($sub->is_graded)
+            <div class="mt-3 p-3" style="background:#f8faff;border:1px solid #e5e7eb;border-radius:10px;">
+              <h6 class="fw-bold mb-1" style="color:#1f2937;font-size:.9rem;">Graded by Teacher</h6>
+              <div class="d-flex justify-content-center gap-3 mt-2">
+                <div style="text-align:center;">
+                  <span style="font-size:1.1rem;font-weight:800;color:#0ea5e9;">{{ $sub->marks ?? 0 }} / {{ $sub->max_marks ?? 100 }}</span>
+                  <div style="font-size:.65rem;color:#6b7280;text-transform:uppercase;font-weight:700;">Score</div>
+                </div>
+                <div style="width:1px;background:#e5e7eb;"></div>
+                <div style="text-align:center;">
+                  <span style="font-size:1.1rem;font-weight:800;color:{{ $sub->grade_letter == 'F' ? '#dc2626' : '#16a34a' }};">{{ $sub->grade_letter }}</span>
+                  <div style="font-size:.65rem;color:#6b7280;text-transform:uppercase;font-weight:700;">Grade</div>
+                </div>
+              </div>
+              @if($sub->feedback)
+                <div style="font-size:.8rem;color:#4b5563;margin-top:8px;padding-top:8px;border-top:1px dashed #cbd5e1;">
+                  "{{ $sub->feedback }}"
+                </div>
+              @endif
+            </div>
+          @else
+            <p style="font-size:.7rem;color:#9ca3af;margin-top:4px;">Your teacher will grade this soon.</p>
+          @endif
         </div>
         @endif
       </div>

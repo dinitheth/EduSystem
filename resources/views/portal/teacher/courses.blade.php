@@ -51,8 +51,8 @@
 .content-item .ci-desc{font-size:.78rem;color:#6b7280;margin-top:3px;}
 .content-item .ci-del{position:absolute;top:12px;right:12px;background:#fee2e2;color:#dc2626;border:none;border-radius:8px;padding:5px 10px;font-size:.72rem;cursor:pointer;font-weight:600;}
 .content-item .ci-del:hover{background:#fecaca;}
-.yt-thumb{border-radius:8px;overflow:hidden;margin-top:8px;}
-.yt-thumb iframe{width:100%;aspect-ratio:16/9;border:none;border-radius:8px;}
+.yt-thumb{border-radius:8px;overflow:hidden;margin-top:8px;max-width:640px;}
+.yt-thumb iframe{width:100%;aspect-ratio:16/9;border:none;border-radius:8px;background:#000;}
 
 /* Form styles inside drawer */
 .drawer-form input,.drawer-form textarea,.drawer-form select{border:1.5px solid #e5e7eb;border-radius:9px;padding:9px 12px;width:100%;font-size:.85rem;transition:border .15s;font-family:'Inter',sans-serif;}
@@ -283,11 +283,13 @@ function renderContentList(contents) {
     const delBtn = c.mine ? `<button class="ci-del" onclick="deleteContent(${c.id}, event)"><i class="bi bi-trash me-1"></i>Remove</button>` : '';
     return `<div class="content-item" id="ci-${c.id}">
       ${delBtn}
-      <div class="ci-type" style="background:${bg};color:${color};"><i class="bi ${icon}"></i>${c.type.toUpperCase()}</div>
+      <div class="d-flex flex-wrap align-items-center gap-2 mb-2" style="${c.mine ? 'padding-right:85px;' : ''}">
+        <div class="ci-type m-0" style="background:${bg};color:${color};"><i class="bi ${icon}"></i>${c.type.toUpperCase()}</div>
+        <div style="font-size:.72rem;color:#0f766e;background:#ccfbf1;padding:4px 14px;border-radius:20px;font-weight:700;border:1px solid #5eead4;"><i class="bi bi-person-fill me-1"></i>${esc(c.teacher)} &nbsp;·&nbsp; ${c.created_at}</div>
+      </div>
       <div class="ci-title">${esc(c.title)}</div>
       ${c.description ? `<div class="ci-desc">${esc(c.description)}</div>` : ''}
       ${body}
-      <div style="font-size:.65rem;color:#9ca3af;margin-top:6px;">By ${esc(c.teacher)} &nbsp;·&nbsp; ${c.created_at}</div>
     </div>`;
   }).join('');
 }

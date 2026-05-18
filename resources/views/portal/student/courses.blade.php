@@ -64,8 +64,8 @@
 .ci-title{font-weight:700;font-size:.92rem;color:#1f2937;margin-bottom:4px;}
 .ci-desc{font-size:.78rem;color:#6b7280;margin-bottom:8px;}
 .ci-text{background:#f8faff;border:1px solid #e5e7eb;border-radius:8px;padding:12px;font-size:.82rem;color:#374151;white-space:pre-wrap;line-height:1.6;max-height:240px;overflow-y:auto;}
-.yt-embed{border-radius:10px;overflow:hidden;margin-top:6px;}
-.yt-embed iframe{width:100%;aspect-ratio:16/9;border:none;}
+.yt-embed{border-radius:10px;overflow:hidden;margin-top:6px;max-width:640px;}
+.yt-embed iframe{width:100%;aspect-ratio:16/9;border:none;background:#000;}
 .ci-footer{font-size:.65rem;color:#9ca3af;margin-top:8px;}
 </style>
 @endpush
@@ -231,11 +231,13 @@ function renderContent(contents) {
     if (c.type==='youtube' && c.youtube_embed)
       media = `<div class="yt-embed"><iframe src="${c.youtube_embed}" allowfullscreen allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"></iframe></div>`;
     return `<div class="ci">
-      <div class="ci-badge" style="background:${bg};color:${color};"><i class="bi ${icon}"></i>${c.type.toUpperCase()}</div>
+      <div class="d-flex flex-wrap align-items-center gap-2 mb-2">
+        <div class="ci-badge m-0" style="background:${bg};color:${color};"><i class="bi ${icon}"></i>${c.type.toUpperCase()}</div>
+        <div style="font-size:.72rem;color:#4338ca;background:#e0e7ff;padding:4px 14px;border-radius:20px;font-weight:700;border:1px solid #c7d2fe;"><i class="bi bi-person-fill me-1"></i>${esc(c.teacher)} &nbsp;·&nbsp; ${c.created_at}</div>
+      </div>
       <div class="ci-title">${esc(c.title)}</div>
       ${c.description ? `<div class="ci-desc">${esc(c.description)}</div>` : ''}
       ${media}
-      <div class="ci-footer"><i class="bi bi-person me-1"></i>${esc(c.teacher)} &nbsp;·&nbsp; ${c.created_at}</div>
     </div>`;
   }).join('');
 }
