@@ -20,9 +20,6 @@ Route::get('/admin/login',   [AdminAuthController::class, 'showLogin'])->name('a
 Route::post('/admin/login',  [AdminAuthController::class, 'login'])->name('admin.login.post');
 Route::post('/admin/logout', [AdminAuthController::class, 'logout'])->name('admin.logout');
 
-Route::get('/notifications/{notification}/open', [PortalNotificationController::class, 'open'])
-    ->name('portal.notifications.open');
-
 Route::middleware('admin.auth')->group(function () {
     Route::get('/dashboard', [DashboardController::class, 'index'])->name('dashboard');
 
@@ -45,6 +42,7 @@ Route::post('/student/login',  [StudentAuthController::class, 'login'])->name('s
 Route::post('/student/logout', [StudentAuthController::class, 'logout'])->name('student.logout');
 
 Route::prefix('student')->middleware('student.auth')->group(function () {
+    Route::get('/notifications/{notification}/open', [PortalNotificationController::class, 'open'])->name('student.notifications.open');
     Route::get('/dashboard',                             [StudentPortalController::class, 'dashboard'])->name('student.dashboard');
     Route::get('/courses',                               [StudentPortalController::class, 'courses'])->name('student.courses');
     Route::get('/courses/{subject}/content',             [StudentPortalController::class, 'courseContent'])->name('student.course.content');
@@ -63,6 +61,7 @@ Route::post('/teacher/login',  [TeacherAuthController::class, 'login'])->name('t
 Route::post('/teacher/logout', [TeacherAuthController::class, 'logout'])->name('teacher.logout');
 
 Route::prefix('teacher')->middleware('teacher.auth')->group(function () {
+    Route::get('/notifications/{notification}/open', [PortalNotificationController::class, 'open'])->name('teacher.notifications.open');
     Route::get('/dashboard',                              [TeacherPortalController::class, 'dashboard'])->name('teacher.dashboard');
     Route::get('/students',                               [TeacherPortalController::class, 'students'])->name('teacher.students');
     Route::get('/courses',                                [TeacherPortalController::class, 'courses'])->name('teacher.courses');

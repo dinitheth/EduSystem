@@ -3,6 +3,7 @@
 namespace App\Providers;
 
 use App\Models\PortalNotification;
+use Illuminate\Support\Facades\Request;
 use Illuminate\Support\Facades\View;
 use Illuminate\Support\ServiceProvider;
 
@@ -22,8 +23,18 @@ class AppServiceProvider extends ServiceProvider
     public function boot(): void
     {
         View::composer('portal.layout', function ($view) {
-            $type = session('student_id') ? 'student' : (session('teacher_id') ? 'teacher' : null);
-            $id = session('student_id') ?: session('teacher_id');
+            $type = null;
+            $id = null;
+
+            if (Request::is('student/*') && session('student_id')) {
+                $type = 'student';
+                $id = session('student_id');
+            }
+
+            if (Request::is('teacher/*') && session('teacher_id')) {
+                $type = 'teacher';
+                $id = session('teacher_id');
+            }
 
             $notifications = collect();
             $unreadCount = 0;

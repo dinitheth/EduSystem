@@ -26,6 +26,7 @@ class TeacherAuthController extends Controller
         }
 
         $teacher = $login->teacher()->with('subjects')->first();
+        session()->forget(['student_id','student_name','student_class']);
         session([
             'teacher_id'    => $teacher->id,
             'teacher_name'  => $teacher->full_name,

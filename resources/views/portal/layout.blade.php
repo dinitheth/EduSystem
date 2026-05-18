@@ -94,7 +94,7 @@ body{font-family:'Inter',sans-serif;background:#f1f5f9;min-height:100vh;}
             @endif
           </div>
           @forelse(($portalNotifications ?? collect()) as $notification)
-            <a href="{{ route('portal.notifications.open', $notification->id) }}" class="notification-item {{ $notification->read_at ? '' : 'unread' }}">
+            <a href="{{ route($notification->recipient_type === 'teacher' ? 'teacher.notifications.open' : 'student.notifications.open', $notification->id) }}" class="notification-item {{ $notification->read_at ? '' : 'unread' }}">
               <div class="notification-item-title">
                 @if(!$notification->read_at)<i class="bi bi-circle-fill me-1" style="font-size:.45rem;color:#2563eb;"></i>@endif
                 {{ $notification->title }}
