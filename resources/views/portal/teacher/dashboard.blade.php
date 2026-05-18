@@ -54,7 +54,7 @@
           <div class="stat-icon" style="background:#fef9c3;margin:0;"><i class="bi bi-file-earmark-pdf-fill"
               style="color:#ca8a04;"></i></div>
           <div>
-            <div class="stat-num" style="font-size:1.3rem;">{{ $assignments->count() }}</div>
+            <div class="stat-num" style="font-size:1.3rem;">{{ $assignmentCount }}</div>
             <div class="stat-label">Posted Assignments</div>
           </div>
           <a href="{{ route('teacher.assignments') }}" class="btn btn-sm ms-auto fw-semibold"
@@ -70,7 +70,7 @@
           <div class="stat-icon" style="background:#eef2ff;margin:0;"><i class="bi bi-patch-question-fill"
               style="color:#6366f1;"></i></div>
           <div>
-            <div class="stat-num" style="font-size:1.3rem;">{{ $mcqs->count() }}</div>
+            <div class="stat-num" style="font-size:1.3rem;">{{ $mcqCount }}</div>
             <div class="stat-label">Published MCQs</div>
           </div>
           <a href="{{ route('teacher.mcq.create') }}" class="btn btn-sm ms-auto fw-semibold"
@@ -108,6 +108,7 @@
       <div class="section-card">
         <div class="section-header">
           <h5><i class="bi bi-journal-check me-2 text-success"></i>Recent Student Submissions</h5>
+          <a href="{{ route('teacher.marks') }}" style="font-size:.78rem;color:#6366f1;">View All</a>
         </div>
         <div class="table-responsive">
           <table class="table table-hover mb-0" style="font-size:.85rem;">

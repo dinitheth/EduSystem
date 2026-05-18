@@ -3,6 +3,7 @@ namespace App\Http\Controllers\Portal;
 
 use App\Http\Controllers\Controller;
 use App\Models\{Teacher, Assignment, AssignmentSubmission, Student, Mcq, McqQuestion, McqOption, McqSubmission, Mark, Subject, CourseContent};
+use App\Services\PortalNotifier;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Storage;
 
@@ -12,14 +13,49 @@ class TeacherPortalController extends Controller
         return Teacher::with('subjects')->findOrFail(session('teacher_id'));
     }
 
+    private function syncAssignmentMark(AssignmentSubmission $submission): void {
+        if (!$submission->is_graded) return;
+
+        $submission->loadMissing('assignment');
+        if (!$submission->assignment) return;
+
+        $mark = Mark::where('assignment_submission_id', $submission->id)->first()
+            ?: Mark::where('student_id', $submission->student_id)
+                ->where('subject_id', $submission->assignment->subject_id)
+                ->where('type', 'assignment')
+                ->where('title', $submission->assignment->title)
+                ->first();
+
+        ($mark ?: new Mark())->fill([
+            'student_id' => $submission->student_id,
+            'subject_id' => $submission->assignment->subject_id,
+            'assignment_submission_id' => $submission->id,
+            'mcq_submission_id' => null,
+            'type' => 'assignment',
+            'title' => $submission->assignment->title,
+            'score' => $submission->marks,
+            'total' => $submission->max_marks,
+        ])->save();
+    }
+
+    private function syncTeacherAssignmentMarks(Teacher $teacher): void {
+        AssignmentSubmission::with('assignment')
+            ->whereHas('assignment', fn($query) => $query->where('teacher_id', $teacher->id))
+            ->where('status', 'graded')
+            ->get()
+            ->each(fn($submission) => $this->syncAssignmentMark($submission));
+    }
+
     // ── Dashboard ─────────────────────────────────────────────────
     public function dashboard() {
         $teacher     = $this->teacher();
+        $assignmentCount = Assignment::where('teacher_id', $teacher->id)->count();
+        $mcqCount = Mcq::where('teacher_id', $teacher->id)->count();
         $assignments = Assignment::with('subject')->where('teacher_id', $teacher->id)->latest()->take(5)->get();
         $mcqs        = Mcq::with('subject')->where('teacher_id', $teacher->id)->latest()->take(5)->get();
         $results     = McqSubmission::whereHas('mcq', fn($q) => $q->where('teacher_id', $teacher->id))
-            ->with(['student','mcq'])->latest()->take(10)->get();
-        return view('portal.teacher.dashboard', compact('teacher','assignments','mcqs','results'));
+            ->with(['student','mcq'])->latest()->take(6)->get();
+        return view('portal.teacher.dashboard', compact('teacher','assignments','mcqs','results','assignmentCount','mcqCount'));
     }
 
     // ── Students list ─────────────────────────────────────────────
@@ -130,7 +166,7 @@ class TeacherPortalController extends Controller
         $path = null;
         if ($request->hasFile('file'))
             $path = $request->file('file')->store('assignments', 'public');
-        Assignment::create([
+        $assignment = Assignment::create([
             'teacher_id'  => $teacher->id,
             'subject_id'  => $request->subject_id,
             'class'       => $teacher->class,
@@ -139,7 +175,55 @@ class TeacherPortalController extends Controller
             'file_path'   => $path,
             'due_date'    => $request->due_date,
         ]);
+        app(PortalNotifier::class)->notifyStudentsAboutAssignment($assignment);
         return back()->with('success', 'Assignment posted successfully!');
+    }
+
+    public function updateAssignment(Request $request, Assignment $assignment) {
+        $teacher = $this->teacher();
+        if ($assignment->teacher_id !== $teacher->id) abort(403);
+
+        $request->validate([
+            'title'       => 'required|string|max:255',
+            'subject_id'  => 'nullable|exists:subjects,id',
+            'description' => 'nullable|string',
+            'due_date'    => 'nullable|date',
+            'file'        => 'nullable|file|mimes:pdf|max:20480',
+        ]);
+        if ($request->subject_id && !$teacher->subjects->pluck('id')->contains($request->subject_id))
+            return back()->with('error', 'Invalid subject selection.');
+
+        $path = $assignment->file_path;
+        if ($request->hasFile('file')) {
+            if ($assignment->file_path) Storage::disk('public')->delete($assignment->file_path);
+            $path = $request->file('file')->store('assignments', 'public');
+        }
+
+        $assignment->update([
+            'subject_id'  => $request->subject_id,
+            'title'       => $request->title,
+            'description' => $request->description,
+            'file_path'   => $path,
+            'due_date'    => $request->due_date,
+        ]);
+
+        $assignment->submissions()->where('status', 'graded')->get()->each(fn($submission) => $this->syncAssignmentMark($submission));
+
+        return back()->with('success', 'Assignment updated successfully!');
+    }
+
+    public function deleteAssignment(Assignment $assignment) {
+        $teacher = $this->teacher();
+        if ($assignment->teacher_id !== $teacher->id) abort(403);
+
+        $assignment->submissions()->get()->each(function ($submission) {
+            if ($submission->file_path) Storage::disk('public')->delete($submission->file_path);
+            Mark::where('assignment_submission_id', $submission->id)->delete();
+        });
+        if ($assignment->file_path) Storage::disk('public')->delete($assignment->file_path);
+        $assignment->delete();
+
+        return back()->with('success', 'Assignment deleted successfully!');
     }
 
     public function viewSubmissions(Assignment $assignment) {
@@ -166,6 +250,10 @@ class TeacherPortalController extends Controller
             'graded_by' => $teacher->id,
             'graded_at' => now(),
         ]);
+
+        $submission->refresh();
+        $this->syncAssignmentMark($submission);
+
         return back()->with('success', 'Marks saved for '.$submission->student->full_name.'!');
     }
 
@@ -250,6 +338,7 @@ class TeacherPortalController extends Controller
             foreach ($qData['options'] as $j => $optText)
                 McqOption::create(['question_id' => $question->id, 'option_text' => $optText, 'is_correct' => ($j == $qData['correct'])]);
         }
+        app(PortalNotifier::class)->notifyStudentsAboutMcq($mcq);
         return redirect()->route('teacher.mcqs')->with('success', 'MCQ published successfully!');
     }
 
@@ -262,10 +351,16 @@ class TeacherPortalController extends Controller
     }
 
     public function marks() {
-        $teacher  = $this->teacher();
+        $teacher = $this->teacher();
+        $this->syncTeacherAssignmentMarks($teacher);
         $myMcqIds = Mcq::where('teacher_id', $teacher->id)->pluck('id');
-        $marks    = Mark::with(['student','subject'])
-            ->whereIn('mcq_submission_id', McqSubmission::whereIn('mcq_id', $myMcqIds)->pluck('id'))
+        $mySubmissionIds = McqSubmission::whereIn('mcq_id', $myMcqIds)->pluck('id');
+        $assignmentSubmissionIds = AssignmentSubmission::whereHas('assignment', fn($query) => $query->where('teacher_id', $teacher->id))->pluck('id');
+        $marks = Mark::with(['student','subject'])
+            ->where(function ($query) use ($mySubmissionIds, $assignmentSubmissionIds) {
+                $query->whereIn('mcq_submission_id', $mySubmissionIds)
+                    ->orWhereIn('assignment_submission_id', $assignmentSubmissionIds);
+            })
             ->latest()->get();
         return view('portal.teacher.marks', compact('teacher','marks'));
     }

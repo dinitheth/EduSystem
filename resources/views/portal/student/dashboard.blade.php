@@ -52,7 +52,7 @@
       <div class="stat-card">
         <div class="stat-icon" style="background:#fef9c3;"><i class="bi bi-file-earmark-pdf-fill"
             style="color:#ca8a04;"></i></div>
-        <div class="stat-num">{{ $assignments->count() }}</div>
+        <div class="stat-num">{{ $assignmentCount }}</div>
         <div class="stat-label">New Assignments</div>
       </div>
     </div>
@@ -60,7 +60,7 @@
       <div class="stat-card">
         <div class="stat-icon" style="background:#f0fdf4;"><i class="bi bi-patch-question-fill"
             style="color:#16a34a;"></i></div>
-        <div class="stat-num">{{ $mcqs->count() }}</div>
+        <div class="stat-num">{{ $mcqCount }}</div>
         <div class="stat-label">Available MCQs</div>
       </div>
     </div>
@@ -68,7 +68,7 @@
       <div class="stat-card">
         <div class="stat-icon" style="background:#fef2f2;"><i class="bi bi-bar-chart-fill" style="color:#dc2626;"></i>
         </div>
-        <div class="stat-num">{{ $marks->count() }}</div>
+        <div class="stat-num">{{ $markCount }}</div>
         <div class="stat-label">Marks Recorded</div>
       </div>
     </div>

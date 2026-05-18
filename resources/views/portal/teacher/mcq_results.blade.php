@@ -42,13 +42,13 @@
           <td>
             <div class="d-flex align-items-center gap-2">
               <div style="flex:1;background:#f1f5f9;border-radius:4px;height:6px;">
-                <div style="background:{{ $pct>=80?'#16a34a':($pct>=50?'#f59e0b':'#dc2626') }};width:{{ $pct }}%;height:6px;border-radius:4px;"></div>
+                <div style="background:{{ $pct>=75?'#16a34a':($pct>=50?'#f59e0b':'#dc2626') }};width:{{ $pct }}%;height:6px;border-radius:4px;"></div>
               </div>
-              <span style="font-weight:700;color:{{ $pct>=80?'#16a34a':($pct>=50?'#f59e0b':'#dc2626') }};width:38px;">{{ $pct }}%</span>
+              <span style="font-weight:700;color:{{ $pct>=75?'#16a34a':($pct>=50?'#f59e0b':'#dc2626') }};width:38px;">{{ $pct }}%</span>
             </div>
           </td>
           <td>
-            @if($pct>=80)<span class="badge bg-success">A</span>
+            @if($pct>=75)<span class="badge bg-success">A</span>
             @elseif($pct>=60)<span class="badge bg-primary">B</span>
             @elseif($pct>=40)<span class="badge bg-warning text-dark">C</span>
             @else<span class="badge bg-danger">F</span>

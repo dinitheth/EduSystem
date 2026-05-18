@@ -41,6 +41,16 @@ body{font-family:'Inter',sans-serif;background:#f1f5f9;min-height:100vh;}
 .section-card .section-header h5{font-size:.95rem;font-weight:700;color:#1f2937;margin:0;}
 .badge-class{background:#e0f2fe;color:#0369a1;padding:3px 10px;border-radius:20px;font-size:.7rem;font-weight:700;letter-spacing:.5px;}
 .subject-chip{background:#eef2ff;color:#6366f1;padding:4px 12px;border-radius:20px;font-size:.75rem;font-weight:600;display:inline-block;margin:2px;}
+.notification-btn{width:38px;height:38px;border:1px solid #e5e7eb;background:#fff;border-radius:50%;display:flex;align-items:center;justify-content:center;color:#475569;position:relative;}
+.notification-btn:hover{background:#f8fafc;color:#0f172a;}
+.notification-badge{position:absolute;top:-4px;right:-4px;min-width:18px;height:18px;border-radius:999px;background:#dc2626;color:#fff;font-size:.62rem;font-weight:800;display:flex;align-items:center;justify-content:center;padding:0 5px;border:2px solid #fff;}
+.notification-menu{width:340px;max-height:420px;overflow:auto;border:none;border-radius:12px;box-shadow:0 18px 45px rgba(15,23,42,.16);padding:0;}
+.notification-item{display:block;text-decoration:none;color:#111827;padding:12px 14px;border-bottom:1px solid #f1f5f9;}
+.notification-item:hover{background:#f8fafc;color:#111827;}
+.notification-item.unread{background:#eff6ff;}
+.notification-item-title{font-size:.82rem;font-weight:800;margin-bottom:3px;}
+.notification-item-body{font-size:.74rem;color:#64748b;line-height:1.35;}
+.notification-item-time{font-size:.68rem;color:#94a3b8;margin-top:5px;}
 </style>
 @stack('styles')
 </head>
@@ -68,9 +78,41 @@ body{font-family:'Inter',sans-serif;background:#f1f5f9;min-height:100vh;}
       <span style="font-size:.8rem;color:#9ca3af;">@yield('breadcrumb','Dashboard')</span>
       <span id="live-clock" style="font-size:.72rem;color:#b0b7c3;margin-top:1px;"></span>
     </div>
-    <div class="user-info text-end">
-      <strong>@yield('user-name')</strong>
-      <small>Class <span class="badge-class">@yield('user-class')</span> @yield('user-role','User')</small>
+    <div class="d-flex align-items-center gap-3">
+      <div class="dropdown">
+        <button class="notification-btn" type="button" data-bs-toggle="dropdown" data-bs-auto-close="outside" aria-expanded="false" title="Notifications">
+          <i class="bi bi-bell-fill"></i>
+          @if(($portalUnreadNotifications ?? 0) > 0)
+            <span class="notification-badge">{{ $portalUnreadNotifications > 9 ? '9+' : $portalUnreadNotifications }}</span>
+          @endif
+        </button>
+        <div class="dropdown-menu dropdown-menu-end notification-menu">
+          <div class="px-3 py-2 border-bottom d-flex justify-content-between align-items-center">
+            <strong style="font-size:.86rem;">Notifications</strong>
+            @if(($portalUnreadNotifications ?? 0) > 0)
+              <span class="badge rounded-pill text-bg-danger">{{ $portalUnreadNotifications }} new</span>
+            @endif
+          </div>
+          @forelse(($portalNotifications ?? collect()) as $notification)
+            <a href="{{ route('portal.notifications.open', $notification->id) }}" class="notification-item {{ $notification->read_at ? '' : 'unread' }}">
+              <div class="notification-item-title">
+                @if(!$notification->read_at)<i class="bi bi-circle-fill me-1" style="font-size:.45rem;color:#2563eb;"></i>@endif
+                {{ $notification->title }}
+              </div>
+              @if($notification->body)
+                <div class="notification-item-body">{{ $notification->body }}</div>
+              @endif
+              <div class="notification-item-time">{{ $notification->created_at->diffForHumans() }}</div>
+            </a>
+          @empty
+            <div class="px-3 py-4 text-center text-muted" style="font-size:.8rem;">No notifications yet.</div>
+          @endforelse
+        </div>
+      </div>
+      <div class="user-info text-end">
+        <strong>@yield('user-name')</strong>
+        <small>Class <span class="badge-class">@yield('user-class')</span> @yield('user-role','User')</small>
+      </div>
     </div>
   </div>
   <div class="portal-content">

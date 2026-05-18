@@ -3,6 +3,7 @@ namespace App\Http\Controllers\Portal;
 
 use App\Http\Controllers\Controller;
 use App\Models\{Student, Assignment, AssignmentSubmission, Mcq, McqSubmission, McqAnswer, McqOption, Mark, CourseContent, Subject};
+use App\Services\PortalNotifier;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 
@@ -12,18 +13,56 @@ class StudentPortalController extends Controller
         return Student::with('subjects')->findOrFail(session('student_id'));
     }
 
+    private function applyStudentQuestionOrder(Mcq $mcq, Student $student): void {
+        $orderedQuestions = $mcq->questions
+            ->sortBy(fn($question) => sprintf('%u', crc32($mcq->id.'-'.$student->id.'-'.$question->id)))
+            ->values();
+        $mcq->setRelation('questions', $orderedQuestions);
+    }
+
+    private function syncStudentAssignmentMarks(Student $student): void {
+        AssignmentSubmission::with('assignment')
+            ->where('student_id', $student->id)
+            ->where('status', 'graded')
+            ->get()
+            ->each(function (AssignmentSubmission $submission) {
+                if (!$submission->assignment) return;
+
+                $mark = Mark::where('assignment_submission_id', $submission->id)->first()
+                    ?: Mark::where('student_id', $submission->student_id)
+                        ->where('subject_id', $submission->assignment->subject_id)
+                        ->where('type', 'assignment')
+                        ->where('title', $submission->assignment->title)
+                        ->first();
+
+                ($mark ?: new Mark())->fill([
+                    'student_id' => $submission->student_id,
+                    'subject_id' => $submission->assignment->subject_id,
+                    'assignment_submission_id' => $submission->id,
+                    'mcq_submission_id' => null,
+                    'type' => 'assignment',
+                    'title' => $submission->assignment->title,
+                    'score' => $submission->marks,
+                    'total' => $submission->max_marks,
+                ])->save();
+            });
+    }
+
     public function dashboard() {
         $student     = $this->student();
+        $assignmentCount = Assignment::where('class', $student->class)->count();
+        $mcqCount = Mcq::where('class', $student->class)->count();
+        $markCount = Mark::where('student_id', $student->id)->count();
         $assignments = Assignment::with(['teacher','subject'])
             ->where('class', $student->class)
-            ->latest()->take(5)->get();
+            ->latest()->take(2)->get();
         $mcqs = Mcq::with(['teacher','subject'])
             ->where('class', $student->class)
-            ->latest()->take(5)->get();
+            ->latest()->take(2)->get();
         $marks = Mark::with('subject')
             ->where('student_id', $student->id)
-            ->latest()->take(10)->get();
-        return view('portal.student.dashboard', compact('student','assignments','mcqs','marks'));
+            ->latest()->take(5)->get();
+        return view('portal.student.dashboard', compact('student','assignments','mcqs','marks','assignmentCount','mcqCount','markCount'));
     }
 
     public function courses() {
@@ -104,6 +143,7 @@ class StudentPortalController extends Controller
             'file_path'     => $path,
             'submitted_at'  => now(),
         ]);
+        app(PortalNotifier::class)->notifyTeacherAboutAssignmentSubmission($assignment, $student);
         return back()->with('success','Assignment submitted successfully!');
     }
 
@@ -112,20 +152,22 @@ class StudentPortalController extends Controller
         $mcqs    = Mcq::with(['teacher','subject'])
             ->where('class', $student->class)
             ->latest()->get();
-        $done = McqSubmission::where('student_id', $student->id)->pluck('mcq_id')->toArray();
-        return view('portal.student.mcqs', compact('student','mcqs','done'));
+        $submissions = McqSubmission::where('student_id', $student->id)->get()->keyBy('mcq_id');
+        $done = $submissions->keys()->toArray();
+        return view('portal.student.mcqs', compact('student','mcqs','done','submissions'));
     }
 
     public function takeMcq(Mcq $mcq) {
         $student = $this->student();
         if ($student->class !== $mcq->class) abort(403);
+        $already = McqSubmission::where('student_id', $student->id)->where('mcq_id', $mcq->id)->first();
+        if ($already) return redirect()->route('student.mcq.result', $already->id);
         // Check global expiry
         if ($mcq->expires_at && now()->isAfter($mcq->expires_at)) {
             return redirect()->route('student.mcqs')->with('error', 'This MCQ test has expired and is no longer available.');
         }
-        $already = McqSubmission::where('student_id', $student->id)->where('mcq_id', $mcq->id)->first();
-        if ($already) return redirect()->route('student.mcq.result', $already->id);
         $mcq->load('questions.options');
+        $this->applyStudentQuestionOrder($mcq, $student);
         return view('portal.student.mcq_take', compact('student','mcq'));
     }
 
@@ -182,6 +224,7 @@ class StudentPortalController extends Controller
         });
 
         $sub = McqSubmission::where('student_id', $student->id)->where('mcq_id', $mcq->id)->first();
+        app(PortalNotifier::class)->notifyTeacherAboutMcqSubmission($mcq, $student, $sub->score, $sub->total);
         return redirect()->route('student.mcq.result', $sub->id);
     }
 
@@ -189,11 +232,13 @@ class StudentPortalController extends Controller
         $student = $this->student();
         if ($submission->student_id !== $student->id) abort(403);
         $submission->load('mcq.questions.options','answers');
+        $this->applyStudentQuestionOrder($submission->mcq, $student);
         return view('portal.student.mcq_result', compact('student','submission'));
     }
 
     public function marks() {
         $student = $this->student();
+        $this->syncStudentAssignmentMarks($student);
         $marks   = Mark::with('subject')
             ->where('student_id', $student->id)
             ->latest()->get();

@@ -103,9 +103,30 @@
                 @else <span class="text-muted">—</span> @endif
               </td>
               <td>
-                <a href="{{ route('teacher.assignment.submissions', $a->id) }}" class="btn btn-sm fw-semibold" style="background:#f0fdf4;color:#16a34a;border-radius:8px;font-size:.72rem;padding:4px 12px;">
+                <div class="d-flex flex-wrap gap-1">
+                <a href="{{ route('teacher.assignment.submissions', $a->id) }}" class="btn btn-sm fw-semibold" style="background:#f0fdf4;color:#16a34a;border-radius:8px;font-size:.72rem;padding:4px 10px;">
                   <i class="bi bi-pencil-square me-1"></i>Grade
                 </a>
+                <button type="button"
+                  class="btn btn-sm fw-semibold edit-assignment-btn"
+                  style="background:#eef2ff;color:#4338ca;border-radius:8px;font-size:.72rem;padding:4px 10px;"
+                  data-bs-toggle="modal"
+                  data-bs-target="#editAssignmentModal"
+                  data-update-url="{{ route('teacher.assignments.update', $a->id) }}"
+                  data-title="{{ e($a->title) }}"
+                  data-subject-id="{{ $a->subject_id }}"
+                  data-description="{{ e($a->description) }}"
+                  data-due-date="{{ $a->due_date ? \Carbon\Carbon::parse($a->due_date)->format('Y-m-d') : '' }}">
+                  <i class="bi bi-pencil me-1"></i>Edit
+                </button>
+                <form action="{{ route('teacher.assignments.delete', $a->id) }}" method="POST" onsubmit="return confirm('Delete this assignment and its submissions?')" class="d-inline">
+                  @csrf
+                  @method('DELETE')
+                  <button type="submit" class="btn btn-sm fw-semibold" style="background:#fee2e2;color:#b91c1c;border-radius:8px;font-size:.72rem;padding:4px 10px;">
+                    <i class="bi bi-trash me-1"></i>Delete
+                  </button>
+                </form>
+                </div>
               </td>
             </tr>
             @empty
@@ -117,4 +138,67 @@
     </div>
   </div>
 </div>
+
+<div class="modal fade" id="editAssignmentModal" tabindex="-1" aria-hidden="true">
+  <div class="modal-dialog modal-dialog-centered">
+    <div class="modal-content border-0 shadow-lg" style="border-radius:14px;">
+      <form id="editAssignmentForm" method="POST" enctype="multipart/form-data">
+        @csrf
+        @method('PUT')
+        <div class="modal-header border-0 pb-0">
+          <h5 class="modal-title fw-bold"><i class="bi bi-pencil-square me-2 text-primary"></i>Edit Assignment</h5>
+          <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+        </div>
+        <div class="modal-body">
+          <div class="mb-3">
+            <label class="form-label fw-semibold" style="font-size:.8rem;">Title <span class="text-danger">*</span></label>
+            <input type="text" name="title" id="edit-title" class="form-control form-control-sm" required>
+          </div>
+          <div class="mb-3">
+            <label class="form-label fw-semibold" style="font-size:.8rem;">Subject</label>
+            <select name="subject_id" id="edit-subject-id" class="form-select form-select-sm">
+              <option value="">General / No Subject</option>
+              @foreach($subjects as $sub)
+              <option value="{{ $sub->id }}">{{ $sub->subject_name }}</option>
+              @endforeach
+            </select>
+          </div>
+          <div class="mb-3">
+            <label class="form-label fw-semibold" style="font-size:.8rem;">Description</label>
+            <textarea name="description" id="edit-description" class="form-control form-control-sm" rows="3"></textarea>
+          </div>
+          <div class="mb-3">
+            <label class="form-label fw-semibold" style="font-size:.8rem;">Due Date</label>
+            <input type="date" name="due_date" id="edit-due-date" class="form-control form-control-sm">
+          </div>
+          <div class="mb-1">
+            <label class="form-label fw-semibold" style="font-size:.8rem;">Replace PDF File</label>
+            <input type="file" name="file" class="form-control form-control-sm" accept=".pdf">
+            <small class="text-muted">Leave empty to keep the existing PDF.</small>
+          </div>
+        </div>
+        <div class="modal-footer border-0 pt-0">
+          <button type="button" class="btn btn-sm btn-outline-secondary" data-bs-dismiss="modal">Cancel</button>
+          <button type="submit" class="btn btn-sm fw-semibold" style="background:#4338ca;color:#fff;border-radius:8px;padding:7px 16px;">
+            <i class="bi bi-save me-1"></i>Save Changes
+          </button>
+        </div>
+      </form>
+    </div>
+  </div>
+</div>
+
+@push('scripts')
+<script>
+document.querySelectorAll('.edit-assignment-btn').forEach((button) => {
+  button.addEventListener('click', () => {
+    document.getElementById('editAssignmentForm').action = button.dataset.updateUrl;
+    document.getElementById('edit-title').value = button.dataset.title || '';
+    document.getElementById('edit-subject-id').value = button.dataset.subjectId || '';
+    document.getElementById('edit-description').value = button.dataset.description || '';
+    document.getElementById('edit-due-date').value = button.dataset.dueDate || '';
+  });
+});
+</script>
+@endpush
 @endsection

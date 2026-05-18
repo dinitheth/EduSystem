@@ -23,6 +23,7 @@
   @forelse($mcqs as $m)
   @php
     $submitted   = in_array($m->id, $done);
+    $submission  = $submissions[$m->id] ?? null;
     $isExpired   = $m->expires_at && now()->isAfter($m->expires_at);
     $questionCnt = $m->questions()->count();
     $timeStr     = $m->time_limit ? ' · ' . $m->time_limit . ' min' : '';
@@ -63,7 +64,7 @@
             <i class="bi bi-lock me-1"></i>Test Closed
           </div>
         @else
-          <a href="{{ route('student.mcq.take', $m->id) }}"
+          <a href="{{ $submitted && $submission ? route('student.mcq.result', $submission->id) : route('student.mcq.take', $m->id) }}"
              class="btn btn-sm w-100 mt-2 fw-semibold"
              style="background:{{ $btnBg }};color:{{ $btnColor }};border-radius:8px;font-size:.85rem;padding:8px;">
             @if($submitted)

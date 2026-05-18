@@ -33,6 +33,7 @@
   @php 
     $sub = $submissions[$a->id] ?? null;
     $done = $sub !== null; 
+    $gradeColor = $sub && $sub->grade_letter === 'F' ? '#dc2626' : '#16a34a';
   @endphp
   <div class="col-md-6 col-lg-4">
     <div class="section-card h-100">
@@ -47,6 +48,20 @@
             @if($a->due_date)<span style="font-size:.72rem;color:#dc2626;"><i class="bi bi-clock me-1"></i>{{ \Carbon\Carbon::parse($a->due_date)->format('d M Y') }}</span>@endif
           </div>
         </div>
+        @if($sub && $sub->is_graded)
+          <div class="mb-3 p-3" style="background:#f0fdf4;border:1px solid #bbf7d0;border-radius:12px;">
+            <div class="d-flex justify-content-between align-items-center">
+              <div>
+                <div style="font-size:.68rem;color:#15803d;text-transform:uppercase;font-weight:800;">Assignment Mark</div>
+                <div style="font-size:1rem;font-weight:800;color:#14532d;">{{ $sub->marks }} / {{ $sub->max_marks }}</div>
+              </div>
+              <div style="text-align:right;">
+                <div style="font-size:.68rem;color:#15803d;text-transform:uppercase;font-weight:800;">Grade</div>
+                <span style="font-size:1.2rem;font-weight:900;color:{{ $gradeColor }};">{{ $sub->grade_letter }}</span>
+              </div>
+            </div>
+          </div>
+        @endif
         <h6 class="fw-bold mt-2">{{ $a->title }}</h6>
         <p class="text-muted" style="font-size:.8rem;">
           {{ $a->subject->subject_name ?? 'General' }} &nbsp;·&nbsp; {{ $a->teacher->full_name ?? '' }}
@@ -91,27 +106,7 @@
           <span class="done-badge" style="font-size:.78rem;padding:6px 16px;">
             <i class="bi bi-check-circle-fill"></i>Assignment Submitted
           </span>
-          @if($sub->is_graded)
-            <div class="mt-3 p-3" style="background:#f8faff;border:1px solid #e5e7eb;border-radius:10px;">
-              <h6 class="fw-bold mb-1" style="color:#1f2937;font-size:.9rem;">Graded by Teacher</h6>
-              <div class="d-flex justify-content-center gap-3 mt-2">
-                <div style="text-align:center;">
-                  <span style="font-size:1.1rem;font-weight:800;color:#0ea5e9;">{{ $sub->marks ?? 0 }} / {{ $sub->max_marks ?? 100 }}</span>
-                  <div style="font-size:.65rem;color:#6b7280;text-transform:uppercase;font-weight:700;">Score</div>
-                </div>
-                <div style="width:1px;background:#e5e7eb;"></div>
-                <div style="text-align:center;">
-                  <span style="font-size:1.1rem;font-weight:800;color:{{ $sub->grade_letter == 'F' ? '#dc2626' : '#16a34a' }};">{{ $sub->grade_letter }}</span>
-                  <div style="font-size:.65rem;color:#6b7280;text-transform:uppercase;font-weight:700;">Grade</div>
-                </div>
-              </div>
-              @if($sub->feedback)
-                <div style="font-size:.8rem;color:#4b5563;margin-top:8px;padding-top:8px;border-top:1px dashed #cbd5e1;">
-                  "{{ $sub->feedback }}"
-                </div>
-              @endif
-            </div>
-          @else
+          @if(!$sub->is_graded)
             <p style="font-size:.7rem;color:#9ca3af;margin-top:4px;">Your teacher will grade this soon.</p>
           @endif
         </div>

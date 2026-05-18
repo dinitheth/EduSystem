@@ -44,7 +44,7 @@
         @forelse($marks as $mk)
         @php
           $pct   = $mk->total > 0 ? round(($mk->score / $mk->total) * 100) : 0;
-          $grade = $pct >= 80 ? 'A' : ($pct >= 60 ? 'B' : ($pct >= 40 ? 'C' : 'F'));
+          $grade = $pct >= 75 ? 'A' : ($pct >= 60 ? 'B' : ($pct >= 40 ? 'C' : 'F'));
           $color = $pct >= 60 ? '#16a34a' : ($pct >= 40 ? '#f59e0b' : '#dc2626');
         @endphp
         <tr>

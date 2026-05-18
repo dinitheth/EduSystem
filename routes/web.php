@@ -7,25 +7,37 @@ use App\Http\Controllers\TeacherController;
 use App\Http\Controllers\SubjectController;
 use App\Http\Controllers\ExportController;
 use App\Http\Controllers\ImportController;
+use App\Http\Controllers\AdminAuthController;
+use App\Http\Controllers\PortalNotificationController;
 use App\Http\Controllers\Portal\StudentAuthController;
 use App\Http\Controllers\Portal\TeacherAuthController;
 use App\Http\Controllers\Portal\StudentPortalController;
 use App\Http\Controllers\Portal\TeacherPortalController;
 
-Route::get('/', fn() => redirect()->route('dashboard'));
-Route::get('/dashboard', [DashboardController::class, 'index'])->name('dashboard');
+Route::get('/', fn() => redirect()->route('dashboard'))->middleware('admin.auth');
 
-Route::resource('students', StudentController::class)->only(['index','store','update','destroy']);
-Route::resource('teachers', TeacherController::class)->only(['index','store','update','destroy']);
-Route::resource('subjects',  SubjectController::class)->only(['index','store','update','destroy']);
+Route::get('/admin/login',   [AdminAuthController::class, 'showLogin'])->name('admin.login');
+Route::post('/admin/login',  [AdminAuthController::class, 'login'])->name('admin.login.post');
+Route::post('/admin/logout', [AdminAuthController::class, 'logout'])->name('admin.logout');
 
-Route::post('/export/preview', [ExportController::class, 'preview'])->name('export.preview');
-Route::post('/export',         [ExportController::class, 'export'])->name('export.download');
+Route::get('/notifications/{notification}/open', [PortalNotificationController::class, 'open'])
+    ->name('portal.notifications.open');
 
-Route::get('/import',          [ImportController::class, 'index'])->name('import.index');
-Route::post('/import',         [ImportController::class, 'import'])->name('import.store');
-Route::post('/import/confirm', [ImportController::class, 'confirm'])->name('import.confirm');
-Route::post('/import/clear',   [ImportController::class, 'clear'])->name('import.clear');
+Route::middleware('admin.auth')->group(function () {
+    Route::get('/dashboard', [DashboardController::class, 'index'])->name('dashboard');
+
+    Route::resource('students', StudentController::class)->only(['index','store','update','destroy']);
+    Route::resource('teachers', TeacherController::class)->only(['index','store','update','destroy']);
+    Route::resource('subjects',  SubjectController::class)->only(['index','store','update','destroy']);
+
+    Route::post('/export/preview', [ExportController::class, 'preview'])->name('export.preview');
+    Route::post('/export',         [ExportController::class, 'export'])->name('export.download');
+
+    Route::get('/import',          [ImportController::class, 'index'])->name('import.index');
+    Route::post('/import',         [ImportController::class, 'import'])->name('import.store');
+    Route::post('/import/confirm', [ImportController::class, 'confirm'])->name('import.confirm');
+    Route::post('/import/clear',   [ImportController::class, 'clear'])->name('import.clear');
+});
 
 // ── Student Portal ──────────────────────────────────────────────
 Route::get('/student/login',   [StudentAuthController::class, 'showLogin'])->name('student.login');
@@ -59,6 +71,8 @@ Route::prefix('teacher')->middleware('teacher.auth')->group(function () {
     Route::delete('/courses/{subject}/content/{content}', [TeacherPortalController::class, 'deleteCourseContent'])->name('teacher.course.content.delete');
     Route::get('/assignments',                            [TeacherPortalController::class, 'assignments'])->name('teacher.assignments');
     Route::post('/assignments',                           [TeacherPortalController::class, 'storeAssignment'])->name('teacher.assignments.store');
+    Route::put('/assignments/{assignment}',               [TeacherPortalController::class, 'updateAssignment'])->name('teacher.assignments.update');
+    Route::delete('/assignments/{assignment}',            [TeacherPortalController::class, 'deleteAssignment'])->name('teacher.assignments.delete');
     Route::get('/assignments/{assignment}/submissions',   [TeacherPortalController::class, 'viewSubmissions'])->name('teacher.assignment.submissions');
     Route::post('/assignments/{assignment}/submissions/{submission}/grade', [TeacherPortalController::class, 'gradeSubmission'])->name('teacher.assignment.grade');
     Route::get('/assignments/{assignment}/submissions/download-all', [TeacherPortalController::class, 'downloadAllSubmissions'])->name('teacher.assignment.submissions.download');

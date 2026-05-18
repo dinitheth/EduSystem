@@ -190,6 +190,15 @@
             <h5>@yield('page-title', 'Dashboard')</h5>
             <small>@yield('page-subtitle', 'Welcome back!')</small>
         </div>
+        <div class="ms-auto d-flex align-items-center gap-3">
+            <span style="font-size:.85rem;color:#374151;font-weight:600;">{{ session('admin_name', 'Admin') }}</span>
+            <form action="{{ route('admin.logout') }}" method="POST" class="m-0">
+                @csrf
+                <button type="submit" class="btn btn-sm btn-outline-secondary" style="border-radius:8px;font-size:.78rem;">
+                    <i class="bi bi-box-arrow-left me-1"></i>Sign Out
+                </button>
+            </form>
+        </div>
     </div>
 
     <div class="content">

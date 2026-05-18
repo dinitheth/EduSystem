@@ -24,19 +24,20 @@
   <div class="table-responsive">
     <table class="table table-hover mb-0" style="font-size:.875rem;">
       <thead style="background:#f8faff;">
-        <tr><th>Student</th><th>Assessment</th><th>Subject</th><th>Score</th><th>%</th><th>Grade</th><th>Date</th></tr>
+        <tr><th>Student</th><th>Assessment</th><th>Subject</th><th>Type</th><th>Score</th><th>%</th><th>Grade</th><th>Date</th></tr>
       </thead>
       <tbody>
         @forelse($marks as $mk)
         @php
           $pct   = $mk->total > 0 ? round(($mk->score / $mk->total) * 100) : 0;
-          $grade = $pct >= 80 ? 'A' : ($pct >= 60 ? 'B' : ($pct >= 40 ? 'C' : 'F'));
+          $grade = $pct >= 75 ? 'A' : ($pct >= 60 ? 'B' : ($pct >= 40 ? 'C' : 'F'));
           $color = $pct >= 60 ? '#16a34a' : ($pct >= 40 ? '#f59e0b' : '#dc2626');
         @endphp
         <tr>
           <td class="fw-semibold">{{ $mk->student->full_name ?? '—' }}</td>
           <td>{{ $mk->title ?? 'MCQ' }}</td>
           <td>{{ $mk->subject->subject_name ?? 'General' }}</td>
+          <td><span class="badge" style="background:#eef2ff;color:#6366f1;font-size:.7rem;">{{ strtoupper($mk->type) }}</span></td>
           <td><strong>{{ $mk->score }}/{{ $mk->total }}</strong></td>
           <td><span style="font-weight:700;color:{{ $color }};">{{ $pct }}%</span></td>
           <td>
@@ -48,7 +49,7 @@
           <td class="text-muted">{{ $mk->created_at->format('d M Y') }}</td>
         </tr>
         @empty
-        <tr><td colspan="7" class="text-center text-muted py-4">No marks recorded yet.</td></tr>
+        <tr><td colspan="8" class="text-center text-muted py-4">No marks recorded yet.</td></tr>
         @endforelse
       </tbody>
     </table>

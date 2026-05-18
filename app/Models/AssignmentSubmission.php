@@ -15,11 +15,17 @@ class AssignmentSubmission extends Model {
     public function gradedBy()   { return $this->belongsTo(Teacher::class, 'graded_by'); }
 
     public function getPercentAttribute(): int {
-        if (!$this->marks || !$this->max_marks) return 0;
+        if ($this->marks === null || !$this->max_marks) return 0;
         return (int) round(($this->marks / $this->max_marks) * 100);
     }
     public function getGradeAttribute(): string {
         $p = $this->percent;
-        return $p >= 80 ? 'A' : ($p >= 60 ? 'B' : ($p >= 40 ? 'C' : ($this->marks !== null ? 'F' : '—')));
+        return $p >= 75 ? 'A' : ($p >= 60 ? 'B' : ($p >= 40 ? 'C' : ($this->marks !== null ? 'F' : '-')));
+    }
+    public function getGradeLetterAttribute(): string {
+        return $this->grade;
+    }
+    public function getIsGradedAttribute(): bool {
+        return $this->status === 'graded' || $this->marks !== null;
     }
 }

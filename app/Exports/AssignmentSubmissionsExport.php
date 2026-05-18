@@ -48,7 +48,7 @@ class AssignmentSubmissionsExport implements FromCollection, WithHeadings, WithM
             $submission->submitted_at ? \Carbon\Carbon::parse($submission->submitted_at)->format('Y-m-d H:i') : 'Not Submitted',
             $submission->marks ?? '-',
             $submission->max_marks ?? '-',
-            $submission->grade_letter ?? '-',
+            $submission->grade_letter,
             $submission->feedback ?? '-',
             $submission->notes ?? '-'
         ];
