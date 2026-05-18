@@ -169,6 +169,68 @@ private function applyStudentQuestionOrder(Mcq $mcq, Student $student): void
 
 It loads the MCQ questions, sorts them by `crc32($mcq->id.'-'.$student->id.'-'.$question->id)`, then replaces the loaded Eloquent relation with that ordered collection.
 
+### MCQ Randomization Example
+
+Each MCQ test has an ID. Each student has an ID. Each question also has an ID.
+
+Example:
+
+```text
+MCQ ID: 10
+Student ID: 25
+Question ID: 101
+```
+
+The system joins those values into one string:
+
+```text
+10-25-101
+```
+
+Then it passes that string into PHP's `crc32()` hash function:
+
+```php
+crc32("10-25-101")
+```
+
+That returns a number. The system creates one hash number for every question, then sorts the questions by those hash numbers.
+
+Example:
+
+```text
+Question 101 -> crc32("10-25-101") -> 3847291021
+Question 102 -> crc32("10-25-102") -> 1459203772
+Question 103 -> crc32("10-25-103") -> 2901118200
+```
+
+After sorting from the smallest hash number to the largest:
+
+```text
+Question 102
+Question 103
+Question 101
+```
+
+That becomes the order shown to that student.
+
+```mermaid
+flowchart TD
+    A["MCQ ID: 10"] --> D["Create key: 10-25-101"]
+    B["Student ID: 25"] --> D
+    C["Question ID: 101"] --> D
+    D --> E["Run crc32('10-25-101')"]
+    E --> F["Hash number"]
+    F --> G["Sort all questions by hash number"]
+    G --> H["Show student-specific question order"]
+```
+
+Why it works:
+
+- Different students have different student IDs, so their hash numbers are different.
+- Different hash numbers create different question orders.
+- The same student keeps the same student ID, so they always get the same order for the same MCQ.
+- The result page uses the same method, so the question order matches what the student saw during the test.
+
 ## Marks
 
 The marks system supports:
