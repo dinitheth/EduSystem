@@ -3,6 +3,7 @@ namespace App\Http\Controllers\Portal;
 
 use App\Http\Controllers\Controller;
 use App\Models\{Teacher, Assignment, AssignmentSubmission, Student, Mcq, McqQuestion, McqOption, McqSubmission, Mark, Subject, CourseContent};
+use App\Services\McqQuestionImporter;
 use App\Services\PortalNotifier;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Storage;
@@ -301,6 +302,35 @@ class TeacherPortalController extends Controller
         $teacher  = $this->teacher();
         $subjects = $teacher->subjects()->orderBy('subject_name')->get();
         return view('portal.teacher.mcq_create', compact('teacher','subjects'));
+    }
+
+    public function importMcqQuestions(Request $request, McqQuestionImporter $importer) {
+        $this->teacher();
+        $request->validate([
+            'file' => 'required|file|mimes:pdf,docx,xlsx,xls|max:10240',
+        ]);
+
+        try {
+            $questions = $importer->import($request->file('file'));
+        } catch (\Throwable $exception) {
+            report($exception);
+            return response()->json([
+                'message' => 'Could not read questions from this file. Please check the document format and try again.',
+                'questions' => [],
+            ], 422);
+        }
+
+        if (empty($questions)) {
+            return response()->json([
+                'message' => 'No valid MCQ questions found. Use clear question lines and option lines such as A), B), C), D).',
+                'questions' => [],
+            ], 422);
+        }
+
+        return response()->json([
+            'message' => count($questions).' question(s) imported. Please select the correct answer for each question before publishing.',
+            'questions' => $questions,
+        ]);
     }
 
     public function storeMcq(Request $request) {

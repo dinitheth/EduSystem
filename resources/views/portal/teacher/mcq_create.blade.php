@@ -23,6 +23,11 @@
 /* Time input styling */
 input[type="time"]{font-family:'Inter',sans-serif;font-size:.9rem;color:#1f2937;}
 input[type="time"]::-webkit-calendar-picker-indicator{cursor:pointer;opacity:.6;}
+.import-panel{background:#f8faff;border:1px solid #e0e7ff;border-radius:12px;padding:14px 16px;margin-bottom:20px;}
+.import-panel label{font-size:.8rem;font-weight:700;color:#3730a3;}
+.import-status{font-size:.78rem;margin-top:8px;display:none;}
+.import-status.ok{color:#15803d;display:block;}
+.import-status.err{color:#b91c1c;display:block;}
 </style>
 @endpush
 
@@ -35,6 +40,21 @@ input[type="time"]::-webkit-calendar-picker-indicator{cursor:pointer;opacity:.6;
   <div class="p-4">
     <form action="{{ route('teacher.mcq.store') }}" method="POST" id="mcqForm">
       @csrf
+      <div class="import-panel">
+        <div class="row g-2 align-items-end">
+          <div class="col-md-8">
+            <label for="mcqImportFile" class="form-label mb-1"><i class="bi bi-file-earmark-arrow-up me-1"></i>Import questions from PDF, DOCX, XLSX, or XLS</label>
+            <input type="file" id="mcqImportFile" class="form-control form-control-sm" accept=".pdf,.docx,.xlsx,.xls">
+            <div class="text-muted mt-1" style="font-size:.72rem;">Only questions and options are imported. Correct answers are not selected automatically.</div>
+          </div>
+          <div class="col-md-4">
+            <button type="button" id="importQuestionsBtn" class="btn btn-sm w-100 fw-semibold" style="background:#eef2ff;color:#4338ca;border-radius:9px;padding:8px 12px;">
+              <i class="bi bi-magic me-1"></i>Import to Fields
+            </button>
+          </div>
+        </div>
+        <div id="importStatus" class="import-status"></div>
+      </div>
       <div class="row g-3 mb-4">
 
         {{-- Title --}}
@@ -126,8 +146,14 @@ input[type="time"]::-webkit-calendar-picker-indicator{cursor:pointer;opacity:.6;
 <script>
 let qCount = 1;
 document.getElementById('addQuestion').addEventListener('click', function() {
+    addQuestionBlock();
+});
+
+function addQuestionBlock(question = '', options = []) {
     const idx = qCount;
     const letters = ['A','B','C','D'];
+    const normalizedOptions = [...options];
+    while (normalizedOptions.length < 4) normalizedOptions.push('');
     const block = document.createElement('div');
     block.className = 'question-block border rounded-3 p-4 mb-3';
     block.dataset.q = idx;
@@ -137,16 +163,16 @@ document.getElementById('addQuestion').addEventListener('click', function() {
             <button type="button" class="btn btn-sm btn-outline-danger remove-q">Remove</button>
         </div>
         <div class="mb-3">
-            <input type="text" name="questions[${idx}][question]" class="form-control" placeholder="Enter your question..." required>
+            <input type="text" name="questions[${idx}][question]" class="form-control" placeholder="Enter your question..." required value="${escAttr(question)}">
         </div>
         <div class="options-list">
-            ${letters.map((l,j) => `
+            ${normalizedOptions.map((option,j) => `
             <div class="row g-2 mb-2 option-row">
                 <div class="col-auto d-flex align-items-center">
                     <input type="radio" name="questions[${idx}][correct]" value="${j}" class="form-check-input" ${j===0?'required':''}>
                 </div>
                 <div class="col">
-                    <input type="text" name="questions[${idx}][options][]" class="form-control form-control-sm" placeholder="Option ${l}" required>
+                    <input type="text" name="questions[${idx}][options][]" class="form-control form-control-sm" placeholder="Option ${letters[j] || (j+1)}" required value="${escAttr(option)}">
                 </div>
             </div>`).join('')}
         </div>
@@ -156,7 +182,7 @@ document.getElementById('addQuestion').addEventListener('click', function() {
     block.querySelector('.remove-q').addEventListener('click', () => { block.remove(); updateLabels(); });
     document.querySelectorAll('.remove-q').forEach(b => b.style.display = '');
     qCount++;
-});
+}
 
 function updateLabels() {
     document.querySelectorAll('.question-block').forEach((b, i) => {
@@ -166,6 +192,57 @@ function updateLabels() {
         document.querySelectorAll('.remove-q').forEach(b => b.style.display = 'none');
     }
 }
+
+function escAttr(value) {
+  return String(value || '').replace(/&/g, '&amp;').replace(/"/g, '&quot;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+}
+
+function resetQuestions(questions) {
+  const container = document.getElementById('questionsContainer');
+  container.innerHTML = '';
+  qCount = 0;
+  questions.forEach(item => addQuestionBlock(item.question, item.options || []));
+  updateLabels();
+}
+
+document.getElementById('importQuestionsBtn').addEventListener('click', async function() {
+  const fileInput = document.getElementById('mcqImportFile');
+  const status = document.getElementById('importStatus');
+  const btn = this;
+
+  status.className = 'import-status';
+  status.textContent = '';
+
+  if (!fileInput.files.length) {
+    status.className = 'import-status err';
+    status.textContent = 'Choose a PDF, DOCX, XLSX, or XLS file first.';
+    return;
+  }
+
+  const fd = new FormData();
+  fd.append('file', fileInput.files[0]);
+  btn.disabled = true;
+  btn.innerHTML = '<i class="bi bi-hourglass-split me-1"></i>Importing...';
+
+  try {
+    const res = await fetch("{{ route('teacher.mcq.import') }}", {
+      method: 'POST',
+      headers: {'X-CSRF-TOKEN': '{{ csrf_token() }}', 'X-Requested-With': 'XMLHttpRequest'},
+      body: fd
+    });
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.message || 'Import failed.');
+    resetQuestions(data.questions);
+    status.className = 'import-status ok';
+    status.textContent = data.message;
+  } catch (err) {
+    status.className = 'import-status err';
+    status.textContent = err.message;
+  } finally {
+    btn.disabled = false;
+    btn.innerHTML = '<i class="bi bi-magic me-1"></i>Import to Fields';
+  }
+});
 </script>
 @endpush
 @endsection
