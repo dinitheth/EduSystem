@@ -11,6 +11,9 @@ return Application::configure(basePath: dirname(__DIR__))
         health: '/up',
     )
     ->withMiddleware(function (Middleware $middleware): void {
+        $middleware->validateCsrfTokens(except: [
+            'register-interest',
+        ]);
         $middleware->alias([
             'admin.auth' => \App\Http\Middleware\AdminAuthMiddleware::class,
             'student.auth' => \App\Http\Middleware\StudentAuthMiddleware::class,

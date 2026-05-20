@@ -1,125 +1,455 @@
-# EduSystem - Laravel Education Portal
+# CodeXpress Institute Management System
 
-EduSystem is a Laravel-based school management and learning portal with separate Admin, Teacher, and Student experiences. It supports student/teacher/subject management, class-based course delivery, assignments, MCQ tests, marks, portal notifications, and email alerts.
+CodeXpress Institute is a Laravel-based education management platform with a public website, admin dashboard, teacher portal, and student portal.
 
-## Tech Stack
+It supports website registrations, pending approval flow, class and subject assignment, assignments, MCQ exams, marks, notifications, and email-ready alerts.
+
+## Stack
 
 - PHP 8.2+
 - Laravel 12
-- SQLite or MySQL
+- MySQL
 - Bootstrap 5
 - Bootstrap Icons
-- Laravel Excel / Maatwebsite Excel
 - Laravel Mail
-- Vite
+- Laravel Excel
+- Smalot PDF Parser
 
-## Main Portals
+## Main Areas
 
-### Admin Portal
+### Public Website
 
-Admin routes are protected by a custom session login.
+Route:
 
-- Login: `/admin/login`
+- `/`
+
+Features:
+
+- Public institute website for CodeXpress Institute
+- Light and dark theme switcher
+- Course list loaded from the real `subjects` table
+- Subject search in the hero section
+- Student registration form
+- Subject suggestions from the live subject database
+- Validation for unavailable subjects
+- Student registrations saved to `pending_students`
+
+Registration fields:
+
+- Full Name
+- Email
+- Phone
+- Date of Birth
+- Gender
+- Subjects the student wants
+
+Extra route:
+
+- `/register-interest`
+
+This route posts website registration requests and now safely redirects to the website register section if opened directly by browser.
+
+## Admin Dashboard
+
+Routes:
+
+- `/admin/login`
+- `/dashboard`
+- `/students`
+- `/teachers`
+- `/subjects`
+- `/pending-students`
+
+Default admin credentials:
+
 - Username: `Admin`
 - Password: `Admin123`
 
 Admin can:
 
-- View the dashboard.
-- Manage students.
-- Manage teachers.
-- Manage subjects.
-- Import students, teachers, and subjects from CSV/Excel.
-- Preview import data before saving.
-- Export filtered students, teachers, and subjects.
+- View dashboard analytics
+- Manage students
+- Manage teachers
+- Manage subjects
+- Review pending student requests from website
+- Approve or dismiss pending students
+- Assign class on approval
+- Finalize subject assignment on approval
+- Import and export records
 
-### Teacher Portal
+## Pending Student Approval Flow
 
-Teacher routes use custom session authentication through `teacher_logins`.
+When a student registers through the website:
+
+1. The request is stored in `pending_students`
+2. It appears in the `Pending Students` admin section
+3. Admin can approve or dismiss it
+4. On approval, the system creates the real student account
+5. The system assigns class
+6. The system assigns selected subjects
+7. The system creates the student portal login
+8. The system generates the registration number automatically
+
+Important update:
+
+- In the approve modal, admin now sees only the subjects the student actually selected
+- It no longer shows the entire subject catalog
+
+## Student Management
+
+Admin student page:
+
+- `/students`
+
+Features:
+
+- Add student
+- Edit student
+- Delete student
+- Assign subjects
+- Assign class
+- Search students
+- Export students
+
+### Registration Number Format
+
+Student registration numbers are auto-generated in ordered format:
+
+- `REG10001`
+- `REG10002`
+- `REG10003`
+
+Behavior:
+
+- Pending-student approval uses this format
+- Manual `Register New Student` modal also auto-generates this format
+- New student modal opens with the next Reg No already filled in
+
+Default generated student password:
+
+- `Abc123`
+
+## Teacher Management
+
+Admin teacher page:
+
+- `/teachers`
+
+Features:
+
+- Add teacher
+- Edit teacher
+- Delete teacher
+- Assign subjects taught
+- Assign class
+- Search teachers
+- Export teachers
+
+### Employee Number Format
+
+Teacher employee numbers are auto-generated in ordered format:
+
+- `T100`
+- `T101`
+- `T102`
+
+Behavior:
+
+- `Add New Teacher` modal auto-fills the next employee number
+- Edit mode keeps the existing employee number editable
+
+Default generated teacher password:
+
+- `Abc123`
+
+## Subject Management
+
+Admin subject page:
+
+- `/subjects`
+
+Features:
+
+- Add subject
+- Edit subject
+- Delete subject
+- Mark subject active/inactive
+- Search subjects
+- Export subjects
+
+### Subject Code Format
+
+Subject codes are auto-generated in ordered format:
+
+- `SUB001`
+- `SUB002`
+- `SUB003`
+
+Behavior:
+
+- `Add New Subject` modal auto-fills the next subject code
+- Edit mode keeps the current subject code editable
+
+## Teacher Portal
+
+Routes:
+
+- `/teacher/login`
+- `/teacher/dashboard`
 
 Teacher can:
 
-- Log in with registered teacher email and password.
-- View dashboard statistics.
-- View students in their assigned class.
-- View assigned subjects.
-- Add course content by subject.
-- Publish assignments for their class.
-- Edit and delete posted assignments.
-- Download assignment PDFs.
-- View student assignment submissions.
-- Grade assignment submissions with marks, max marks, and feedback.
-- Download assignment submissions as ZIP.
-- Export assignment submissions to Excel.
-- Create MCQ tests for assigned subjects.
-- View MCQ submissions and results.
-- View both assignment marks and MCQ marks in Results & Marks.
-- Receive bell notifications and email alerts when students submit assignments or MCQs.
+- Log in with teacher email and password
+- View dashboard statistics
+- View class students
+- View assigned subjects
+- Upload course content
+- Publish assignments
+- Edit assignments
+- Delete assignments
+- View assignment submissions
+- Grade assignments
+- Create MCQ tests
+- Import MCQ questions from PDF, DOCX, XLSX, and XLS
+- Schedule quiz start time
+- Set minute-based quiz durations such as `5 Min`, `10 Min`, `20 Min`
+- Set custom quiz duration
+- View MCQ results
+- View marks for assignments and MCQs
+- Receive notifications when students submit work
 
-### Student Portal
+## Student Portal
 
-Student routes use custom session authentication through `student_logins`.
+Routes:
+
+- `/student/login`
+- `/student/dashboard`
 
 Student can:
 
-- Log in with registered student email and password.
-- View dashboard statistics.
-- View enrolled subjects.
-- View course content for enrolled subjects.
-- View class assignments.
-- Submit assignment notes and files.
-- See assignment mark and grade after teacher grading.
-- View available MCQ tests.
-- Take MCQ tests before expiry.
-- View completed MCQ results even after the test expires.
-- View both assignment marks and MCQ marks in My Marks.
-- Receive bell notifications and email alerts when teachers publish assignments or MCQs for their class and subject.
+- Log in with student email and password
+- View enrolled courses
+- Open course content
+- View assignments
+- Submit assignments
+- View graded assignment marks
+- Open MCQ tests
+- Take MCQ exams
+- View MCQ results
+- View marks for assignments and MCQs
+- Receive notifications for assignments and MCQs
 
-## Authentication
+Student MCQ cards now show:
 
-The application uses custom session authentication:
+- Start time
+- Duration
+- Pending / Starts Soon / Completed / Expired state
 
-- Admin login is hardcoded in `AdminAuthController`.
-- Student login uses `student_logins`.
-- Teacher login uses `teacher_logins`.
+## Session and Login Persistence
 
-To generate/reset all student and teacher portal passwords to `Abc123`, run:
+The system uses Laravel database sessions.
+
+Current session lifetime:
+
+- `SESSION_LIFETIME=525600`
+
+That is 525,600 minutes, or about 1 year.
+
+This applies to:
+
+- Admin login
+- Teacher login
+- Student login
+
+Current session behavior:
+
+- Sessions do not expire on browser close
+- Admin, teacher, and student logins regenerate sessions cleanly
+- Admin, teacher, and student logouts invalidate sessions cleanly
+
+After changing session config, run:
 
 ```bash
-php seed_logins.php
+php artisan config:clear
 ```
+
+## Login Record Sync
+
+The system keeps portal login accounts in:
+
+- `student_logins`
+- `teacher_logins`
+
+Admin-side create and update flows automatically keep these tables in sync.
+
+That means:
+
+- New student records get a portal login automatically
+- Updated student email also updates student login email
+- New teacher records get a portal login automatically
+- Updated teacher email also updates teacher login email
+
+## MCQ Features
+
+### Per-Student Question Order
+
+MCQ question order is randomized per student in a stable way.
+
+File:
+
+- `app/Http/Controllers/Portal/StudentPortalController.php`
+
+Method:
+
+- `applyStudentQuestionOrder()`
+
+How it works:
+
+1. The system combines:
+   `MCQ ID + Student ID + Question ID`
+2. It creates a key like:
+   `10-25-101`
+3. It runs `crc32()` on that key
+4. Each question gets its own hash value
+5. Questions are sorted by those hash values
+
+Result:
+
+- Different students see different question order
+- The same student keeps the same order for the same MCQ
+- Result view matches the same order seen during the exam
+
+### MCQ Scheduling
+
+Teachers can set:
+
+- Quiz start time
+- Quiz duration in minutes
+- Custom duration if needed
+
+Behavior:
+
+- Students cannot open the quiz before start time
+- Students cannot submit after expiry
+- Student take page timer shows readable time like:
+  - `5 Min`
+  - `4 Min 22 Sec`
+  - `1 Hr 10 Min`
+
+### MCQ Import
+
+Teachers can import questions from:
+
+- PDF
+- DOCX
+- XLSX
+- XLS
+
+Current behavior:
+
+- Imports question text
+- Imports answer options
+- Ignores numbering like `1.` or `A)`
+- Does not auto-select the correct answer
+- Teacher still selects the correct answer manually before publishing
+
+Main files:
+
+- `app/Services/McqQuestionImporter.php`
+- `app/Http/Controllers/Portal/TeacherPortalController.php`
+- `resources/views/portal/teacher/mcq_create.blade.php`
+
+### MCQ Navigation Panel
+
+Student MCQ take page includes a CBT-style question navigation sidebar.
+
+File:
+
+- `resources/views/portal/student/mcq_take.blade.php`
+
+Features:
+
+- `Questions` title
+- Compact circular question indicators
+- Blue for current question
+- Green for answered question
+- Light/gray for unanswered question
+- Tight spacing for large quizzes
+- Hover animation
+- Answered count
+
+## Assignment Features
+
+Teachers can:
+
+- Post assignments
+- Edit assignments
+- Delete assignments
+- View submissions
+- Grade each submission
+
+Students can:
+
+- Download assignment files
+- Submit assignments
+- See submitted state
+- See marks and grade after grading
+
+## Marks
+
+Teacher marks page:
+
+- `/teacher/marks`
+
+Student marks page:
+
+- `/student/marks`
+
+Both pages show:
+
+- Assignment marks
+- MCQ marks
+
+Current grade rule:
+
+- `A` for 75% and above
+- `B` for 60% to 74%
+- `C` for 40% to 59%
+- `F` below 40%
 
 ## Notifications
 
-The system has database-backed portal notifications using the `portal_notifications` table.
+The system uses `portal_notifications`.
 
-Notification rules:
+Student notifications:
 
-- When a teacher publishes an assignment, only students in the assignment class and selected subject receive it.
-- When a teacher publishes an MCQ, only students in the MCQ class and selected subject receive it.
-- If an assignment or MCQ has no subject selected, all students in that class receive it.
-- When a student submits an assignment, the assignment teacher receives it.
-- When a student submits an MCQ, the MCQ teacher receives it.
+- New assignment published for their class and subject
+- New MCQ published for their class and subject
 
-The bell icon appears in the Student and Teacher portal top bar. Unread notifications show a badge. Clicking a notification marks it as read and opens the related page.
+Teacher notifications:
+
+- Student assignment submission
+- Student MCQ submission
+
+Routing behavior:
+
+- If a subject is selected, only students assigned to that subject receive the notification
+- If no subject is selected, all students in the target class receive the notification
 
 ## Email Alerts
 
-Email notifications are sent through Laravel Mail.
+Email alerts are handled through Laravel Mail.
 
-Current `.env` default may be:
+Current local mail setting:
 
-```env
-MAIL_MAILER=log
-```
+- `MAIL_MAILER=log`
 
-With `MAIL_MAILER=log`, emails are not sent to inboxes. They are written to:
+That means:
 
-```text
-storage/logs/laravel.log
-```
+- Emails are written to `storage/logs/laravel.log`
+- Emails are not sent to real inboxes until SMTP is configured
 
-To send real email, configure SMTP in `.env`, for example:
+To send real emails, update `.env` for SMTP and clear config:
 
 ```env
 MAIL_MAILER=smtp
@@ -129,180 +459,22 @@ MAIL_USERNAME=your_email@gmail.com
 MAIL_PASSWORD=your_app_password
 MAIL_ENCRYPTION=tls
 MAIL_FROM_ADDRESS=your_email@gmail.com
-MAIL_FROM_NAME="EduSystem"
+MAIL_FROM_NAME="CodeXpress Institute"
 ```
-
-For Gmail, use a Google App Password, not your normal Gmail password.
-
-After changing mail settings, run:
 
 ```bash
 php artisan config:clear
 ```
 
-## MCQ Question Randomization
-
-MCQ questions are randomized per student using a deterministic hash-based order.
-
-The system sorts each question using a value built from:
-
-- MCQ ID
-- Student ID
-- Question ID
-
-This means:
-
-- Student A receives one stable question order.
-- Student B receives a different stable question order.
-- The same student sees the same order while taking the test and viewing the result.
-- No database mutation is needed.
-
-The implementation is in:
-
-- `app/Http/Controllers/Portal/StudentPortalController.php`
-
-Key method:
-
-```php
-private function applyStudentQuestionOrder(Mcq $mcq, Student $student): void
-```
-
-It loads the MCQ questions, sorts them by `crc32($mcq->id.'-'.$student->id.'-'.$question->id)`, then replaces the loaded Eloquent relation with that ordered collection.
-
-### MCQ Randomization Example
-
-Each MCQ test has an ID. Each student has an ID. Each question also has an ID.
-
-Example:
-
-```text
-MCQ ID: 10
-Student ID: 25
-Question ID: 101
-```
-
-The system joins those values into one string:
-
-```text
-10-25-101
-```
-
-Then it passes that string into PHP's `crc32()` hash function:
-
-```php
-crc32("10-25-101")
-```
-
-That returns a number. The system creates one hash number for every question, then sorts the questions by those hash numbers.
-
-Example:
-
-```text
-Question 101 -> crc32("10-25-101") -> 3847291021
-Question 102 -> crc32("10-25-102") -> 1459203772
-Question 103 -> crc32("10-25-103") -> 2901118200
-```
-
-After sorting from the smallest hash number to the largest:
-
-```text
-Question 102
-Question 103
-Question 101
-```
-
-That becomes the order shown to that student.
-
-```mermaid
-flowchart TD
-    A["MCQ ID: 10"] --> D["Create key: 10-25-101"]
-    B["Student ID: 25"] --> D
-    C["Question ID: 101"] --> D
-    D --> E["Run crc32('10-25-101')"]
-    E --> F["Hash number"]
-    F --> G["Sort all questions by hash number"]
-    G --> H["Show student-specific question order"]
-```
-
-Why it works:
-
-- Different students have different student IDs, so their hash numbers are different.
-- Different hash numbers create different question orders.
-- The same student keeps the same student ID, so they always get the same order for the same MCQ.
-- The result page uses the same method, so the question order matches what the student saw during the test.
-
-## Marks
-
-The marks system supports:
-
-- MCQ marks from submitted MCQ tests.
-- Assignment marks from teacher-graded assignment submissions.
-
-Assignment marks are linked through `assignment_submission_id`, so they stay connected to the exact student submission.
-
-Student marks page:
-
-- `/student/marks`
-- Shows both MCQ and assignment marks.
-
-Teacher marks page:
-
-- `/teacher/marks`
-- Shows both MCQ and assignment marks for the teacher's own tests and assignments.
-
-Grades:
-
-- A: 75% and above
-- B: 60% to 74%
-- C: 40% to 59%
-- F: below 40%
-
-## Assignment Workflow
-
-Teacher:
-
-1. Publishes an assignment.
-2. Students in the class and selected subject receive notification/email.
-3. Teacher can edit or delete the assignment.
-4. Teacher views submissions.
-5. Teacher grades submissions.
-
-Student:
-
-1. Opens assignments page.
-2. Downloads assignment PDF if available.
-3. Submits notes and optional file.
-4. Sees submitted status.
-5. Sees mark and grade after teacher grading.
-
-## MCQ Workflow
-
-Teacher:
-
-1. Creates an MCQ with questions and options.
-2. Chooses the correct answer for each question.
-3. Publishes the MCQ to their class and subject.
-4. Students receive notification/email.
-5. Teacher views submissions and results.
-
-Student:
-
-1. Opens MCQ page.
-2. Starts available tests before expiry.
-3. Receives randomized question order.
-4. Submits answers.
-5. Views result immediately.
-6. Can still view completed results after expiry.
-
 ## File Storage
 
-Uploaded files are stored on the public disk:
+Public uploads are stored in:
 
-- Assignment PDFs: `storage/app/public/assignments`
-- Student submissions: `storage/app/public/assignment-submissions`
-- Course content PDFs/videos: `storage/app/public/course-content`
+- `storage/app/public/assignments`
+- `storage/app/public/assignment-submissions`
+- `storage/app/public/course-content`
 
-Create the public storage link if needed:
+Create the storage link if needed:
 
 ```bash
 php artisan storage:link
@@ -310,45 +482,19 @@ php artisan storage:link
 
 ## Useful Commands
 
-Install dependencies:
-
-```bash
-composer install
-npm install
-```
-
-Run migrations:
-
 ```bash
 php artisan migrate
-```
-
-Run app locally:
-
-```bash
-php artisan serve
-```
-
-Build frontend assets:
-
-```bash
-npm run build
-```
-
-Run tests:
-
-```bash
+php artisan config:clear
+php artisan cache:clear
+php artisan route:clear
+php artisan view:clear
 php artisan test
+php artisan storage:link
 ```
 
-Reset portal login passwords:
+## Notes
 
-```bash
-php seed_logins.php
-```
-
-## Important Notes
-
-- Admin auth is simple hardcoded session auth and should be replaced with database-backed admin users before production.
-- Real email delivery requires SMTP configuration.
-- If both student and teacher were previously logged in inside the same browser session, log out and log in again after the session-scoping fix so the notification bell shows the correct portal notifications.
+- Student, teacher, and subject create modals now auto-generate their codes
+- Pending student approval creates portal-ready student accounts
+- Website registration and admin approval are connected to the same real data flow
+- Public website theme preference is stored in `localStorage`

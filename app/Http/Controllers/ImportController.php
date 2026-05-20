@@ -5,6 +5,8 @@ namespace App\Http\Controllers;
 use App\Models\Student;
 use App\Models\Subject;
 use App\Models\Teacher;
+use App\Services\StudentAccountService;
+use App\Services\TeacherAccountService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
@@ -16,6 +18,12 @@ use PhpOffice\PhpSpreadsheet\Shared\Date as ExcelDate;
 
 class ImportController extends Controller
 {
+    public function __construct(
+        private StudentAccountService $studentAccountService,
+        private TeacherAccountService $teacherAccountService
+    ) {
+    }
+
     private const BATCH_SIZE = 50;
 
     private array $schemas = [
@@ -521,7 +529,7 @@ class ImportController extends Controller
 
     private function storeStudent(array $row): void
     {
-        $student = Student::create([
+        $student = $this->studentAccountService->createStudent([
             'reg_no' => $row['reg_no'],
             'full_name' => $row['full_name'],
             'email' => $row['email'],
@@ -529,14 +537,12 @@ class ImportController extends Controller
             'dob' => $row['dob'],
             'gender' => $row['gender'] ?: null,
             'status' => $row['status'] ?: 'Active',
-        ]);
-
-        $this->syncSubjects($student, $row['subjects'] ?? '');
+        ], $this->resolveSubjectIds($row['subjects'] ?? ''));
     }
 
     private function storeTeacher(array $row): void
     {
-        $teacher = Teacher::create([
+        $this->teacherAccountService->createTeacher([
             'employee_no' => $row['employee_no'],
             'full_name' => $row['full_name'],
             'email' => $row['email'],
@@ -544,9 +550,7 @@ class ImportController extends Controller
             'specialization' => $row['specialization'],
             'department' => $row['department'] ?: null,
             'employment_status' => $row['employment_status'] ?: 'Full-time',
-        ]);
-
-        $this->syncSubjects($teacher, $row['subjects'] ?? '');
+        ], $this->resolveSubjectIds($row['subjects'] ?? ''));
     }
 
     private function storeSubject(array $row): void
@@ -562,17 +566,21 @@ class ImportController extends Controller
 
     private function syncSubjects($model, string $subjects): void
     {
+        $model->subjects()->sync($this->resolveSubjectIds($subjects));
+    }
+
+    private function resolveSubjectIds(string $subjects)
+    {
         if (trim($subjects) === '') {
-            $model->subjects()->sync([]);
-            return;
+            return [];
         }
 
         $names = array_filter(array_map('trim', preg_split('/[,;|]/', $subjects)));
-        $ids = Subject::whereIn('subject_name', $names)
-            ->orWhereIn('subject_code', $names)
-            ->pluck('id');
 
-        $model->subjects()->sync($ids);
+        return Subject::whereIn('subject_name', $names)
+            ->orWhereIn('subject_code', $names)
+            ->pluck('id')
+            ->all();
     }
 
     private function coerceRow(string $type, array $row): array

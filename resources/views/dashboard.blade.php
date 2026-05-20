@@ -7,6 +7,12 @@
 @section('content')
 
 <style>
+    .dashboard-stats-grid {
+        display: grid;
+        grid-template-columns: repeat(5, minmax(0, 1fr));
+        gap: 22px;
+        margin-bottom: 22px;
+    }
     .dashboard-grid-card {
         border: none;
         border-radius: 16px;
@@ -34,11 +40,27 @@
         padding: 18px 20px 20px;
     }
     .stat-card {
-        min-height: 208px;
+        min-height: 170px;
+        border-radius: 18px;
+        padding: 22px 20px;
+    }
+    .stat-card .stat-icon {
+        width: 54px;
+        height: 54px;
+        border-radius: 16px;
+        margin-bottom: 14px;
+    }
+    .stat-card .stat-num {
+        font-size: 2.2rem;
+        line-height: 1;
+        margin-bottom: 6px;
+    }
+    .stat-card .stat-label {
+        font-size: 0.96rem;
     }
     .kpi-note {
-        margin-top: 10px;
-        font-size: 0.78rem;
+        margin-top: 8px;
+        font-size: 0.76rem;
         opacity: 0.86;
     }
     .chart-shell {
@@ -142,16 +164,37 @@
         font-size: 0.84rem;
         color: #334155;
     }
+    @media (max-width: 1599.98px) {
+        .dashboard-stats-grid {
+            grid-template-columns: repeat(3, minmax(0, 1fr));
+        }
+    }
     @media (max-width: 1199.98px) {
+        .dashboard-stats-grid {
+            grid-template-columns: repeat(2, minmax(0, 1fr));
+        }
         .chart-shell,
         .chart-shell-sm {
             height: 280px;
         }
     }
+    @media (max-width: 767.98px) {
+        .dashboard-stats-grid {
+            grid-template-columns: 1fr;
+            gap: 16px;
+        }
+        .stat-card {
+            min-height: 154px;
+            padding: 18px 18px;
+        }
+        .stat-card .stat-num {
+            font-size: 2rem;
+        }
+    }
 </style>
 
-<div class="row g-4">
-    <div class="col-xl-3 col-md-6">
+<div class="dashboard-stats-grid">
+    <div>
         <a href="{{ route('students.index') }}" class="stat-card d-block" style="background: linear-gradient(135deg,#6366f1,#818cf8); color:#fff; text-decoration:none;">
             <div class="stat-icon" style="background:rgba(255,255,255,0.2);">
                 <i class="bi bi-people-fill"></i>
@@ -164,7 +207,7 @@
         </a>
     </div>
 
-    <div class="col-xl-3 col-md-6">
+    <div>
         <a href="{{ route('teachers.index') }}" class="stat-card d-block" style="background: linear-gradient(135deg,#0ea5e9,#38bdf8); color:#fff; text-decoration:none;">
             <div class="stat-icon" style="background:rgba(255,255,255,0.2);">
                 <i class="bi bi-person-workspace"></i>
@@ -177,7 +220,7 @@
         </a>
     </div>
 
-    <div class="col-xl-3 col-md-6">
+    <div>
         <a href="{{ route('subjects.index') }}" class="stat-card d-block" style="background: linear-gradient(135deg,#10b981,#34d399); color:#fff; text-decoration:none;">
             <div class="stat-icon" style="background:rgba(255,255,255,0.2);">
                 <i class="bi bi-book-fill"></i>
@@ -190,7 +233,20 @@
         </a>
     </div>
 
-    <div class="col-xl-3 col-md-6">
+    <div>
+        <a href="{{ route('pending-students.index') }}" class="stat-card d-block" style="background: linear-gradient(135deg,#f97316,#fb923c); color:#fff; text-decoration:none;">
+            <div class="stat-icon" style="background:rgba(255,255,255,0.2);">
+                <i class="bi bi-hourglass-split"></i>
+            </div>
+            <div class="stat-num">{{ $pendingStudents }}</div>
+            <div class="stat-label">Pending Students</div>
+            <div class="kpi-note">
+                <i class="bi bi-arrow-right-circle me-1"></i>Review website registrations
+            </div>
+        </a>
+    </div>
+
+    <div>
         <a href="{{ route('students.index') }}" class="stat-card d-block" style="background: linear-gradient(135deg,#0f172a,#334155); color:#fff; text-decoration:none;">
             <div class="stat-icon" style="background:rgba(255,255,255,0.14);">
                 <i class="bi bi-check2-circle"></i>
@@ -202,7 +258,9 @@
             </div>
         </a>
     </div>
+</div>
 
+<div class="row g-4">
     <div class="col-xl-4">
         <div class="dashboard-grid-card">
             <div class="dashboard-grid-header">

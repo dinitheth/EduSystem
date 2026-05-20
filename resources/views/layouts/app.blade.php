@@ -172,6 +172,11 @@
             <i class="bi bi-book-fill"></i> Subjects
         </a>
 
+        <a href="{{ route('pending-students.index') }}"
+           class="sidebar-link {{ request()->routeIs('pending-students.*') ? 'active' : '' }}">
+            <i class="bi bi-person-lines-fill"></i> Pending Students
+        </a>
+
         <div style="flex:1;"></div>
 
         <div class="nav-label" style="margin-top:10px;">Data Tools</div>

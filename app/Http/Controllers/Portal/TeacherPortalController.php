@@ -7,6 +7,7 @@ use App\Services\McqQuestionImporter;
 use App\Services\PortalNotifier;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Storage;
+use Illuminate\Support\Carbon;
 
 class TeacherPortalController extends Controller
 {
@@ -338,7 +339,9 @@ class TeacherPortalController extends Controller
         $request->validate([
             'title'                 => 'required|string|max:255',
             'subject_id'            => 'nullable|exists:subjects,id',
-            'time_limit'            => 'nullable|string',
+            'starts_at'             => 'nullable|date',
+            'time_limit'            => 'nullable|integer|min:1|max:1440',
+            'custom_time_limit'     => 'nullable|integer|min:1|max:1440',
             'questions'             => 'required|array|min:1',
             'questions.*.question'  => 'required|string',
             'questions.*.options'   => 'required|array|min:2',
@@ -348,12 +351,15 @@ class TeacherPortalController extends Controller
         if ($request->subject_id && !$teacher->subjects->pluck('id')->contains($request->subject_id))
             return back()->with('error', 'Invalid subject selection.');
 
-        $totalMinutes = null; $expiresAt = null;
-        if ($request->time_limit) {
-            [$h, $m]      = array_map('intval', explode(':', $request->time_limit));
-            $totalMinutes = $h * 60 + $m;
-            if ($totalMinutes > 0) $expiresAt = now()->addMinutes($totalMinutes);
+        $totalMinutes = $request->integer('time_limit') ?: null;
+        if ($totalMinutes === -1) {
+            $totalMinutes = $request->integer('custom_time_limit') ?: null;
         }
+        if ($request->input('time_limit') === '-1' && !$totalMinutes) {
+            return back()->withInput()->with('error', 'Enter a custom time limit in minutes.');
+        }
+        $startsAt = $request->filled('starts_at') ? Carbon::parse($request->starts_at) : now();
+        $expiresAt = $totalMinutes ? $startsAt->copy()->addMinutes($totalMinutes) : null;
 
         $mcq = Mcq::create([
             'teacher_id' => $teacher->id,
@@ -361,6 +367,7 @@ class TeacherPortalController extends Controller
             'class'      => $teacher->class,
             'title'      => $request->title,
             'time_limit' => $totalMinutes,
+            'starts_at'  => $startsAt,
             'expires_at' => $expiresAt,
         ]);
         foreach ($request->questions as $i => $qData) {

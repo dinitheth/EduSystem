@@ -10,7 +10,8 @@ class SubjectController extends Controller
     public function index()
     {
         $subjects = Subject::latest()->get();
-        return view('subjects.index', compact('subjects'));
+        $nextSubjectCode = $this->generateSubjectCode();
+        return view('subjects.index', compact('subjects', 'nextSubjectCode'));
     }
 
     public function store(Request $request)
@@ -28,7 +29,7 @@ class SubjectController extends Controller
         ]);
 
         Subject::create([
-            'subject_code' => $request->subject_code,
+            'subject_code' => $request->subject_code ?: $this->generateSubjectCode(),
             'subject_name' => $request->subject_name,
             'description'  => $request->description,
             'category'     => $request->category,
@@ -67,5 +68,16 @@ class SubjectController extends Controller
     {
         $subject->delete();
         return redirect()->route('subjects.index')->with('success', 'Subject deleted successfully!');
+    }
+
+    private function generateSubjectCode(): string
+    {
+        $lastSubjectCode = Subject::whereRaw("subject_code REGEXP '^SUB[0-9]{3,5}$'")
+            ->selectRaw('MAX(CAST(SUBSTRING(subject_code, 4) AS UNSIGNED)) as max_subject_code')
+            ->value('max_subject_code');
+
+        $next = $lastSubjectCode ? ((int) $lastSubjectCode + 1) : 1;
+
+        return 'SUB'.str_pad((string) $next, 3, '0', STR_PAD_LEFT);
     }
 }

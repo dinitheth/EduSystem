@@ -22,14 +22,21 @@
 <div class="row g-3">
   @forelse($mcqs as $m)
   @php
-    $submitted   = in_array($m->id, $done);
-    $submission  = $submissions[$m->id] ?? null;
-    $isExpired   = $m->expires_at && now()->isAfter($m->expires_at);
+    $submitted = in_array($m->id, $done);
+    $submission = $submissions[$m->id] ?? null;
+    $startsAt = $m->starts_at;
+    $isUpcoming = $startsAt && now()->lt($startsAt);
+    $isExpired = $m->expires_at && now()->isAfter($m->expires_at);
     $questionCnt = $m->questions()->count();
-    $timeStr     = $m->time_limit ? ' · ' . $m->time_limit . ' min' : '';
-    $cardBorder  = $isExpired ? '#9ca3af' : ($submitted ? '#16a34a' : '#6366f1');
-    $btnBg       = $submitted ? '#d1fae5' : ($isExpired ? '#f1f5f9' : 'linear-gradient(135deg,#6366f1,#3730a3)');
-    $btnColor    = $submitted ? '#065f46' : ($isExpired ? '#9ca3af' : '#fff');
+    $durationLabel = $m->time_limit
+      ? ($m->time_limit >= 60
+        ? floor($m->time_limit / 60) . ' hr' . (floor($m->time_limit / 60) > 1 ? 's' : '') . (($m->time_limit % 60) ? ' ' . ($m->time_limit % 60) . ' min' : '')
+        : $m->time_limit . ' min')
+      : null;
+    $timeStr = $durationLabel ? ' · ' . $durationLabel : '';
+    $cardBorder = $isExpired ? '#9ca3af' : ($submitted ? '#16a34a' : ($isUpcoming ? '#f59e0b' : '#6366f1'));
+    $btnBg = $submitted ? '#d1fae5' : (($isExpired || $isUpcoming) ? '#f1f5f9' : 'linear-gradient(135deg,#6366f1,#3730a3)');
+    $btnColor = $submitted ? '#065f46' : (($isExpired || $isUpcoming) ? '#9ca3af' : '#fff');
   @endphp
   <div class="col-md-6 col-lg-4">
     <div class="section-card h-100" style="border-top:4px solid {{ $cardBorder }};">
@@ -37,18 +44,29 @@
         <div class="d-flex justify-content-between align-items-center mb-2">
           <span class="badge-class">Class {{ $m->class }}</span>
           @if($isExpired && !$submitted)
-            <span style="background:#fee2e2;color:#991b1b;padding:3px 10px;border-radius:20px;font-size:.7rem;font-weight:700;">⏰ Expired</span>
+            <span style="background:#fee2e2;color:#991b1b;padding:3px 10px;border-radius:20px;font-size:.7rem;font-weight:700;">Expired</span>
           @elseif($submitted)
-            <span style="background:#d1fae5;color:#065f46;padding:3px 10px;border-radius:20px;font-size:.7rem;font-weight:700;">✓ Completed</span>
+            <span style="background:#d1fae5;color:#065f46;padding:3px 10px;border-radius:20px;font-size:.7rem;font-weight:700;">Completed</span>
+          @elseif($isUpcoming)
+            <span style="background:#fef3c7;color:#92400e;padding:3px 10px;border-radius:20px;font-size:.7rem;font-weight:700;">Starts Soon</span>
           @else
             <span style="background:#eef2ff;color:#6366f1;padding:3px 10px;border-radius:20px;font-size:.7rem;font-weight:700;">Pending</span>
           @endif
         </div>
+
         <h6 class="fw-bold mt-2">{{ $m->title }}</h6>
         <p class="text-muted" style="font-size:.8rem;">
           {{ $m->subject->subject_name ?? 'General' }} · {{ $questionCnt }} Questions{{ $timeStr }}
         </p>
         <p style="font-size:.78rem;color:#6b7280;">By: {{ $m->teacher->full_name ?? '' }}</p>
+
+        @if($startsAt)
+        <p style="font-size:.72rem;color:{{ $isUpcoming ? '#d97706' : '#0f766e' }};">
+          <i class="bi bi-calendar-event me-1"></i>
+          Start Time: {{ $startsAt->format('d M Y · h:i A') }}
+        </p>
+        @endif
+
         @if($m->expires_at)
         <p style="font-size:.72rem;color:{{ $isExpired ? '#dc2626' : '#f59e0b' }};">
           <i class="bi bi-clock me-1"></i>
@@ -59,9 +77,10 @@
           @endif
         </p>
         @endif
-        @if($isExpired && !$submitted)
+
+        @if(($isExpired || $isUpcoming) && !$submitted)
           <div class="btn btn-sm w-100 mt-2 fw-semibold" style="background:#f1f5f9;color:#9ca3af;border-radius:8px;font-size:.85rem;padding:8px;cursor:not-allowed;">
-            <i class="bi bi-lock me-1"></i>Test Closed
+            <i class="bi bi-lock me-1"></i>{{ $isUpcoming ? 'Not Started Yet' : 'Test Closed' }}
           </div>
         @else
           <a href="{{ $submitted && $submission ? route('student.mcq.result', $submission->id) : route('student.mcq.take', $m->id) }}"

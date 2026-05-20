@@ -6,7 +6,7 @@
 @section('user-name', session('teacher_name'))
 @section('user-role','Teacher')
 @section('user-class', session('teacher_class'))
-@section('breadcrumb','MCQ Tests → Create')
+@section('breadcrumb','MCQ Tests -> Create')
 
 @section('sidebar-nav')
 <div class="section-label">Navigation</div>
@@ -20,14 +20,14 @@
 
 @push('styles')
 <style>
-/* Time input styling */
-input[type="time"]{font-family:'Inter',sans-serif;font-size:.9rem;color:#1f2937;}
-input[type="time"]::-webkit-calendar-picker-indicator{cursor:pointer;opacity:.6;}
+input[type="datetime-local"],select,input[type="number"]{font-family:'Inter',sans-serif;font-size:.9rem;color:#1f2937;}
+input[type="datetime-local"]::-webkit-calendar-picker-indicator{cursor:pointer;opacity:.6;}
 .import-panel{background:#f8faff;border:1px solid #e0e7ff;border-radius:12px;padding:14px 16px;margin-bottom:20px;}
 .import-panel label{font-size:.8rem;font-weight:700;color:#3730a3;}
 .import-status{font-size:.78rem;margin-top:8px;display:none;}
 .import-status.ok{color:#15803d;display:block;}
 .import-status.err{color:#b91c1c;display:block;}
+.duration-chip-note{font-size:.72rem;color:#64748b;}
 </style>
 @endpush
 
@@ -35,7 +35,7 @@ input[type="time"]::-webkit-calendar-picker-indicator{cursor:pointer;opacity:.6;
 <div class="section-card">
   <div class="section-header">
     <h5><i class="bi bi-plus-circle me-2 text-primary"></i>Create New MCQ Test</h5>
-    <a href="{{ route('teacher.mcqs') }}" class="btn btn-sm btn-outline-secondary">← Back</a>
+    <a href="{{ route('teacher.mcqs') }}" class="btn btn-sm btn-outline-secondary">Back</a>
   </div>
   <div class="p-4">
     <form action="{{ route('teacher.mcq.store') }}" method="POST" id="mcqForm">
@@ -55,24 +55,17 @@ input[type="time"]::-webkit-calendar-picker-indicator{cursor:pointer;opacity:.6;
         </div>
         <div id="importStatus" class="import-status"></div>
       </div>
-      <div class="row g-3 mb-4">
 
-        {{-- Title --}}
-        <div class="col-md-4">
+      <div class="row g-3 mb-4 align-items-start">
+        <div class="col-lg-3 col-md-6">
           <label class="form-label fw-semibold" style="font-size:.8rem;">Test Title <span class="text-danger">*</span></label>
           <input type="text" name="title" class="form-control" required value="{{ old('title') }}" placeholder="e.g. Chapter 3 Quiz">
-        </div>
-
-        {{-- Auto class (read-only) --}}
-        <div class="col-md-2">
-          <label class="form-label fw-semibold" style="font-size:.8rem;">Target Class</label>
-          <div class="form-control" style="background:#f1f5f9;color:#3730a3;font-weight:700;border-color:#c7d2fe;">
-            <i class="bi bi-people-fill me-1" style="color:#6366f1;"></i>Class {{ session('teacher_class') }}
+          <div class="mt-1 text-muted" style="font-size:.72rem;">
+            <i class="bi bi-people-fill me-1 text-primary"></i>This quiz will be published for Class {{ session('teacher_class') }}.
           </div>
         </div>
 
-        {{-- Subject: teacher's subjects only --}}
-        <div class="col-md-3">
+        <div class="col-lg-3 col-md-6">
           <label class="form-label fw-semibold" style="font-size:.8rem;">Subject</label>
           <select name="subject_id" class="form-select">
             <option value="">General / No Subject</option>
@@ -85,25 +78,46 @@ input[type="time"]::-webkit-calendar-picker-indicator{cursor:pointer;opacity:.6;
           @endif
         </div>
 
-        {{-- Time limit: proper time input --}}
-        <div class="col-md-3">
-          <label class="form-label fw-semibold" style="font-size:.8rem;">
-            Time Limit <small class="text-muted fw-normal">(HH:MM — when it expires)</small>
-          </label>
+        <div class="col-lg-3 col-md-6">
+          <label class="form-label fw-semibold" style="font-size:.8rem;">Quiz Start Time</label>
+          <div class="input-group">
+            <span class="input-group-text" style="background:#f1f5f9;border-color:#e5e7eb;">
+              <i class="bi bi-calendar-event text-primary"></i>
+            </span>
+            <input type="datetime-local" name="starts_at" class="form-control" value="{{ old('starts_at', now()->format('Y-m-d\\TH:i')) }}">
+          </div>
+          <div class="mt-1 text-muted" style="font-size:.72rem;">
+            <i class="bi bi-info-circle me-1 text-primary"></i>Students can open the quiz only after this time.
+          </div>
+        </div>
+
+        <div class="col-lg-3 col-md-6">
+          <label class="form-label fw-semibold" style="font-size:.8rem;">Time Limit</label>
           <div class="input-group">
             <span class="input-group-text" style="background:#f1f5f9;border-color:#e5e7eb;">
               <i class="bi bi-clock-fill text-primary"></i>
             </span>
-            <input type="time" name="time_limit" class="form-control" value="{{ old('time_limit') }}"
-                   placeholder="00:30" title="Set how long this MCQ is available from now">
+            @php($selectedTime = (string) old('time_limit', '10'))
+            <select name="time_limit" id="timeLimitSelect" class="form-select">
+              <option value="">No Limit</option>
+              @foreach([5,10,15,20,30,45,60,90,120] as $minutes)
+              <option value="{{ $minutes }}" {{ $selectedTime === (string) $minutes ? 'selected' : '' }}>{{ $minutes }} Min</option>
+              @endforeach
+              <option value="-1" {{ $selectedTime === '-1' ? 'selected' : '' }}>Custom</option>
+            </select>
           </div>
-          <div class="mt-1 text-muted" style="font-size:.72rem;">
-            <i class="bi bi-exclamation-circle me-1 text-warning"></i>After this duration from publish, no student can take/submit.
+          <div class="mt-2" id="customTimeWrap" style="display:none;">
+            <div class="input-group">
+              <input type="number" min="1" max="1440" name="custom_time_limit" id="customTimeLimit" class="form-control" value="{{ old('custom_time_limit') }}" placeholder="Enter minutes">
+              <span class="input-group-text">Min</span>
+            </div>
+          </div>
+          <div class="mt-1 duration-chip-note">
+            <i class="bi bi-exclamation-circle me-1 text-warning"></i>Choose a ready-made duration like 5 Min, 10 Min, 20 Min, or set your own.
           </div>
         </div>
       </div>
 
-      {{-- Questions --}}
       <div id="questionsContainer">
         <div class="question-block border rounded-3 p-4 mb-3" data-q="0">
           <div class="d-flex justify-content-between align-items-center mb-3">
@@ -145,6 +159,20 @@ input[type="time"]::-webkit-calendar-picker-indicator{cursor:pointer;opacity:.6;
 @push('scripts')
 <script>
 let qCount = 1;
+const timeLimitSelect = document.getElementById('timeLimitSelect');
+const customTimeWrap = document.getElementById('customTimeWrap');
+const customTimeLimit = document.getElementById('customTimeLimit');
+
+function syncCustomTimeVisibility() {
+    const useCustom = timeLimitSelect.value === '-1';
+    customTimeWrap.style.display = useCustom ? 'block' : 'none';
+    customTimeLimit.required = useCustom;
+    if (!useCustom) customTimeLimit.value = '';
+}
+
+timeLimitSelect.addEventListener('change', syncCustomTimeVisibility);
+syncCustomTimeVisibility();
+
 document.getElementById('addQuestion').addEventListener('click', function() {
     addQuestionBlock();
 });

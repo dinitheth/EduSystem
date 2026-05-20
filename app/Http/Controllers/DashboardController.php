@@ -5,6 +5,7 @@ namespace App\Http\Controllers;
 use App\Models\Student;
 use App\Models\Teacher;
 use App\Models\Subject;
+use App\Models\PendingStudent;
 
 class DashboardController extends Controller
 {
@@ -13,6 +14,7 @@ class DashboardController extends Controller
         $totalStudents = Student::count();
         $totalTeachers = Teacher::count();
         $totalSubjects = Subject::count();
+        $pendingStudents = PendingStudent::where('status', 'Pending')->count();
         $activeStudents = Student::where('status', 'Active')->count();
         $studentsWithoutSubjectsQuery = Student::doesntHave('subjects');
         $teachersWithoutSubjectsQuery = Teacher::doesntHave('subjects');
@@ -95,6 +97,7 @@ class DashboardController extends Controller
             'totalStudents',
             'totalTeachers',
             'totalSubjects',
+            'pendingStudents',
             'activeStudents',
             'studentsWithoutSubjects',
             'teachersWithoutSubjects',

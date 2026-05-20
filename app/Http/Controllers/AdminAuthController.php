@@ -26,6 +26,13 @@ class AdminAuthController extends Controller
             return back()->withInput($request->only('username'))->with('error', 'Invalid username or password.');
         }
 
+        $request->session()->invalidate();
+        $request->session()->regenerateToken();
+        $request->session()->regenerate();
+        session()->forget([
+            'student_id', 'student_name', 'student_class',
+            'teacher_id', 'teacher_name', 'teacher_class',
+        ]);
         session([
             'admin_authenticated' => true,
             'admin_name' => 'Admin',
@@ -34,9 +41,11 @@ class AdminAuthController extends Controller
         return redirect()->route('dashboard');
     }
 
-    public function logout()
+    public function logout(Request $request)
     {
         session()->forget(['admin_authenticated', 'admin_name']);
+        $request->session()->invalidate();
+        $request->session()->regenerateToken();
 
         return redirect()->route('admin.login')->with('success', 'Logged out successfully.');
     }

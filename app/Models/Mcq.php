@@ -3,8 +3,8 @@ namespace App\Models;
 use Illuminate\Database\Eloquent\Model;
 
 class Mcq extends Model {
-    protected $fillable = ['teacher_id','subject_id','class','title','time_limit','expires_at'];
-    protected $casts    = ['expires_at' => 'datetime'];
+    protected $fillable = ['teacher_id','subject_id','class','title','time_limit','starts_at','expires_at'];
+    protected $casts    = ['starts_at' => 'datetime', 'expires_at' => 'datetime'];
 
     public function teacher()    { return $this->belongsTo(Teacher::class); }
     public function subject()    { return $this->belongsTo(Subject::class); }

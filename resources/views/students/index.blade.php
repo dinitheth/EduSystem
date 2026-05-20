@@ -20,7 +20,7 @@
             <button type="button" class="btn btn-sm btn-outline-light fw-semibold px-3" data-bs-toggle="modal" data-bs-target="#exportModal">
                 <i class="bi bi-box-arrow-up me-1"></i>Export
             </button>
-            <button type="button" class="btn btn-sm btn-primary fw-semibold px-3" data-bs-toggle="modal" data-bs-target="#studentModal">
+            <button type="button" class="btn btn-sm btn-primary fw-semibold px-3" id="openStudentCreateModal" data-bs-toggle="modal" data-bs-target="#studentModal">
                 <i class="bi bi-person-plus-fill me-1"></i>Register New Student
             </button>
         </div>
@@ -100,7 +100,8 @@
             <div class="col-md-6">
               <div class="row g-3">
                 <div class="col-6"><label class="form-label"><i class="bi bi-hash me-1 text-primary"></i>Reg No</label>
-                  <input type="text" id="reg_no" name="reg_no" class="form-control @error('reg_no') is-invalid @enderror" placeholder="e.g. REG2024001" value="{{ old('reg_no') }}">
+                  <input type="text" id="reg_no" name="reg_no" class="form-control @error('reg_no') is-invalid @enderror" placeholder="Auto generated" value="{{ old('reg_no', $nextRegNo ?? '') }}" readonly>
+                  <div class="form-text">Generated automatically for each new student.</div>
                   @error('reg_no')<div class="invalid-feedback">{{ $message }}</div>@enderror</div>
                 <div class="col-6"><label class="form-label"><i class="bi bi-person me-1 text-primary"></i>Full Name</label>
                   <input type="text" id="full_name" name="full_name" class="form-control @error('full_name') is-invalid @enderror" placeholder="e.g. Kasun Perera" value="{{ old('full_name') }}">
@@ -356,6 +357,13 @@ const sModalTitle  = document.getElementById('studentModalLabel');
 const sModalHeader = document.getElementById('sModalHeader');
 const sSubmitBtn   = document.getElementById('sSubmitBtn');
 const sStoreUrl    = "{{ route('students.store') }}";
+const regNoInput   = document.getElementById('reg_no');
+const nextRegNo    = @json($nextRegNo ?? '');
+
+function setCreateRegNo() {
+    regNoInput.readOnly = true;
+    regNoInput.value = nextRegNo;
+}
 
 function renderSubjectTags() {
     const c = document.getElementById('selectedSubjects');
@@ -408,7 +416,8 @@ document.querySelectorAll('.edit-btn').forEach(btn=>{
         sModalHeader.style.background='#f59e0b';
         sSubmitBtn.className='btn btn-warning fw-semibold';
         sSubmitBtn.innerHTML='<i class="bi bi-save me-1"></i>Update Student';
-        document.getElementById('reg_no').value=this.dataset.reg_no;
+        regNoInput.readOnly = false;
+        regNoInput.value=this.dataset.reg_no;
         document.getElementById('full_name').value=this.dataset.full_name;
         document.getElementById('email').value=this.dataset.email;
         document.getElementById('phone').value=this.dataset.phone;
@@ -422,13 +431,28 @@ document.querySelectorAll('.edit-btn').forEach(btn=>{
     });
 });
 
+document.getElementById('openStudentCreateModal').addEventListener('click', function () {
+    sForm.action = sStoreUrl;
+    sMethodField.innerHTML = '';
+    sModalTitle.innerHTML = '<i class="bi bi-person-plus-fill me-2"></i>Register New Student';
+    sModalHeader.style.background = '#6366f1';
+    sSubmitBtn.className = 'btn btn-primary fw-semibold';
+    sSubmitBtn.innerHTML = '<i class="bi bi-person-check me-1"></i>Register Student';
+    sForm.reset();
+    selectedSubjectIds = new Set();
+    renderSubjectTags();
+    setCreateRegNo();
+    document.getElementById('subjectDropdown').style.display = 'none';
+    document.getElementById('class').value = '';
+});
+
 document.getElementById('studentModal').addEventListener('hidden.bs.modal',function(){
     sForm.action=sStoreUrl; sMethodField.innerHTML='';
     sModalTitle.innerHTML='<i class="bi bi-person-plus-fill me-2"></i>Register New Student';
     sModalHeader.style.background='#6366f1';
     sSubmitBtn.className='btn btn-primary fw-semibold';
     sSubmitBtn.innerHTML='<i class="bi bi-person-check me-1"></i>Register Student';
-    sForm.reset(); selectedSubjectIds=new Set(); renderSubjectTags();
+    sForm.reset(); selectedSubjectIds=new Set(); renderSubjectTags(); setCreateRegNo();
     document.getElementById('subjectDropdown').style.display='none';
     document.getElementById('class').value='';
 });
@@ -439,6 +463,7 @@ document.addEventListener('click',function(e){
 });
 
 @if($errors->any()) new bootstrap.Modal(document.getElementById('studentModal')).show(); @endif
+@if(!$errors->any()) setCreateRegNo(); @endif
 
 // ─── Main table search ───
 const searchInput=document.getElementById('searchInput');

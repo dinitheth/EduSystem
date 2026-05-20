@@ -21,7 +21,7 @@
             <button type="button" class="btn btn-sm btn-outline-light fw-semibold px-3" data-bs-toggle="modal" data-bs-target="#exportModal">
                 <i class="bi bi-box-arrow-up me-1"></i>Export
             </button>
-            <button type="button" class="btn btn-light btn-sm fw-semibold px-3 text-info" data-bs-toggle="modal" data-bs-target="#teacherModal">
+            <button type="button" class="btn btn-light btn-sm fw-semibold px-3 text-info" id="openTeacherCreateModal" data-bs-toggle="modal" data-bs-target="#teacherModal">
                 <i class="bi bi-person-plus-fill me-1"></i>Add New Teacher
             </button>
         </div>
@@ -101,7 +101,8 @@
             <div class="col-md-6">
               <div class="row g-3">
                 <div class="col-6"><label class="form-label"><i class="bi bi-hash me-1 text-info"></i>Employee No</label>
-                  <input type="text" id="employee_no" name="employee_no" class="form-control @error('employee_no') is-invalid @enderror" placeholder="e.g. T001" value="{{ old('employee_no') }}">
+                  <input type="text" id="employee_no" name="employee_no" class="form-control @error('employee_no') is-invalid @enderror" placeholder="Auto generated" value="{{ old('employee_no', $nextEmployeeNo ?? '') }}" readonly>
+                  <div class="form-text">Generated automatically for each new teacher.</div>
                   @error('employee_no')<div class="invalid-feedback">{{ $message }}</div>@enderror</div>
                 <div class="col-6"><label class="form-label"><i class="bi bi-person me-1 text-info"></i>Full Name</label>
                   <input type="text" id="full_name" name="full_name" class="form-control @error('full_name') is-invalid @enderror" placeholder="e.g. Mr. Kasun Perera" value="{{ old('full_name') }}">
@@ -259,12 +260,19 @@ $subjectsForJs = $subjects->map(function($s) {
 const allTeachers = Object.values(@json($teachersForJs));
 const allSubjects = Object.values(@json($subjectsForJs));
 let selectedSubjectIds = new Set();
+const nextEmployeeNo = @json($nextEmployeeNo ?? '');
 const tForm = document.getElementById('teacherForm');
 const tMethodField = document.getElementById('tMethodField');
 const tModalTitle  = document.getElementById('teacherModalLabel');
 const tModalHeader = document.getElementById('tModalHeader');
 const tSubmitBtn   = document.getElementById('tSubmitBtn');
+const employeeNoInput = document.getElementById('employee_no');
 const tStoreUrl    = "{{ route('teachers.store') }}";
+
+function setCreateEmployeeNo() {
+    employeeNoInput.readOnly = true;
+    employeeNoInput.value = nextEmployeeNo;
+}
 
 function renderSubjectTags() {
     const c=document.getElementById('selectedSubjects'),n=document.getElementById('noSubjectMsg');
@@ -313,7 +321,8 @@ document.querySelectorAll('.edit-btn').forEach(btn=>{
         tModalTitle.innerHTML='<i class="bi bi-pencil-square me-2"></i>Edit Teacher';
         tModalHeader.style.background='#f59e0b'; tSubmitBtn.style.background='#f59e0b'; tSubmitBtn.style.color='#000';
         tSubmitBtn.innerHTML='<i class="bi bi-save me-1"></i>Update Teacher';
-        document.getElementById('employee_no').value=this.dataset.employee_no;
+        employeeNoInput.readOnly = false;
+        employeeNoInput.value=this.dataset.employee_no;
         document.getElementById('full_name').value=this.dataset.full_name;
         document.getElementById('email').value=this.dataset.email;
         document.getElementById('phone').value=this.dataset.phone;
@@ -327,12 +336,28 @@ document.querySelectorAll('.edit-btn').forEach(btn=>{
     });
 });
 
+document.getElementById('openTeacherCreateModal').addEventListener('click', function () {
+    tForm.action = tStoreUrl;
+    tMethodField.innerHTML = '';
+    tModalTitle.innerHTML = '<i class="bi bi-person-plus-fill me-2"></i>Add New Teacher';
+    tModalHeader.style.background = '#0ea5e9';
+    tSubmitBtn.style.background = '#0ea5e9';
+    tSubmitBtn.style.color = '#fff';
+    tSubmitBtn.innerHTML = '<i class="bi bi-person-check me-1"></i>Add Teacher';
+    tForm.reset();
+    selectedSubjectIds = new Set();
+    renderSubjectTags();
+    setCreateEmployeeNo();
+    document.getElementById('subjectDropdown').style.display = 'none';
+    document.getElementById('class').value = '';
+});
+
 document.getElementById('teacherModal').addEventListener('hidden.bs.modal',function(){
     tForm.action=tStoreUrl;tMethodField.innerHTML='';
     tModalTitle.innerHTML='<i class="bi bi-person-plus-fill me-2"></i>Add New Teacher';
     tModalHeader.style.background='#0ea5e9';tSubmitBtn.style.background='#0ea5e9';tSubmitBtn.style.color='#fff';
     tSubmitBtn.innerHTML='<i class="bi bi-person-check me-1"></i>Add Teacher';
-    tForm.reset();selectedSubjectIds=new Set();renderSubjectTags();
+    tForm.reset();selectedSubjectIds=new Set();renderSubjectTags();setCreateEmployeeNo();
     document.getElementById('subjectDropdown').style.display='none';
     document.getElementById('class').value='';
 });
@@ -341,6 +366,7 @@ document.addEventListener('click',function(e){
         document.getElementById('subjectDropdown').style.display='none';
 });
 @if($errors->any()) new bootstrap.Modal(document.getElementById('teacherModal')).show(); @endif
+@if(!$errors->any()) setCreateEmployeeNo(); @endif
 
 const searchInput=document.getElementById('searchInput'),clearBtn=document.getElementById('clearSearch');
 const noResults=document.getElementById('no-results'),countBadge=document.getElementById('teacher-count');

@@ -162,6 +162,9 @@ class StudentPortalController extends Controller
         if ($student->class !== $mcq->class) abort(403);
         $already = McqSubmission::where('student_id', $student->id)->where('mcq_id', $mcq->id)->first();
         if ($already) return redirect()->route('student.mcq.result', $already->id);
+        if ($mcq->starts_at && now()->lt($mcq->starts_at)) {
+            return redirect()->route('student.mcqs')->with('error', 'This MCQ test is not available yet. Please wait until the start time.');
+        }
         // Check global expiry
         if ($mcq->expires_at && now()->isAfter($mcq->expires_at)) {
             return redirect()->route('student.mcqs')->with('error', 'This MCQ test has expired and is no longer available.');
@@ -174,6 +177,9 @@ class StudentPortalController extends Controller
     public function submitMcq(Request $request, Mcq $mcq) {
         $student = $this->student();
         if ($student->class !== $mcq->class) abort(403);
+        if ($mcq->starts_at && now()->lt($mcq->starts_at)) {
+            return redirect()->route('student.mcqs')->with('error', 'This MCQ test is not available yet.');
+        }
         // Enforce global expiry on submit too
         if ($mcq->expires_at && now()->isAfter($mcq->expires_at)) {
             return redirect()->route('student.mcqs')->with('error', 'Time is up! This MCQ test has expired.');

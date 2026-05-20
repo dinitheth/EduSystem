@@ -4,21 +4,23 @@ namespace App\Http\Controllers;
 
 use App\Models\Teacher;
 use App\Models\Subject;
+use App\Services\TeacherAccountService;
 use Illuminate\Http\Request;
 
 class TeacherController extends Controller
 {
-    public function index()
+    public function index(TeacherAccountService $teacherAccountService)
     {
         $teachers = Teacher::with('subjects')->latest()->get();
         $subjects = Subject::orderBy('subject_name')->get();
-        return view('teachers.index', compact('teachers', 'subjects'));
+        $nextEmployeeNo = $teacherAccountService->generateEmployeeNo();
+        return view('teachers.index', compact('teachers', 'subjects', 'nextEmployeeNo'));
     }
 
-    public function store(Request $request)
+    public function store(Request $request, TeacherAccountService $teacherAccountService)
     {
         $request->validate([
-            'employee_no'       => 'required|string|max:50|unique:teachers,employee_no',
+            'employee_no'       => 'nullable|string|max:50|unique:teachers,employee_no',
             'full_name'         => 'required|string|max:255',
             'email'             => 'required|email|max:255|unique:teachers,email',
             'phone'             => 'required|string|max:20',
@@ -30,22 +32,20 @@ class TeacherController extends Controller
             'subject_ids.*'     => 'exists:subjects,id',
         ]);
 
-        $teacher = Teacher::create([
-            'employee_no'       => $request->employee_no,
-            'full_name'         => $request->full_name,
-            'email'             => $request->email,
-            'phone'             => $request->phone,
-            'specialization'    => $request->specialization,
-            'department'        => $request->department,
-            'employment_status' => $request->employment_status ?? 'Full-time',
-            'class'             => $request->class,
+        $payload = $request->only([
+            'employee_no','full_name','email','phone','specialization','department','employment_status','class'
         ]);
-        $teacher->subjects()->sync($request->input('subject_ids', []));
+
+        if (blank($payload['employee_no'] ?? null)) {
+            unset($payload['employee_no']);
+        }
+
+        $teacherAccountService->createTeacher($payload, $request->input('subject_ids', []));
 
         return redirect()->route('teachers.index')->with('success', 'Teacher added successfully!');
     }
 
-    public function update(Request $request, Teacher $teacher)
+    public function update(Request $request, Teacher $teacher, TeacherAccountService $teacherAccountService)
     {
         $request->validate([
             'employee_no'       => 'required|string|max:50|unique:teachers,employee_no,' . $teacher->id,
@@ -60,17 +60,9 @@ class TeacherController extends Controller
             'subject_ids.*'     => 'exists:subjects,id',
         ]);
 
-        $teacher->update([
-            'employee_no'       => $request->employee_no,
-            'full_name'         => $request->full_name,
-            'email'             => $request->email,
-            'phone'             => $request->phone,
-            'specialization'    => $request->specialization,
-            'department'        => $request->department,
-            'employment_status' => $request->employment_status ?? 'Full-time',
-            'class'             => $request->class,
-        ]);
-        $teacher->subjects()->sync($request->input('subject_ids', []));
+        $teacherAccountService->updateTeacher($teacher, $request->only([
+            'employee_no','full_name','email','phone','specialization','department','employment_status','class'
+        ]), $request->input('subject_ids', []));
 
         return redirect()->route('teachers.index')->with('success', 'Teacher updated successfully!');
     }

@@ -26,6 +26,9 @@ class TeacherAuthController extends Controller
         }
 
         $teacher = $login->teacher()->with('subjects')->first();
+        $request->session()->invalidate();
+        $request->session()->regenerateToken();
+        $request->session()->regenerate();
         session()->forget(['student_id','student_name','student_class']);
         session([
             'teacher_id'    => $teacher->id,
@@ -36,8 +39,10 @@ class TeacherAuthController extends Controller
         return redirect()->route('teacher.dashboard');
     }
 
-    public function logout() {
+    public function logout(Request $request) {
         session()->forget(['teacher_id','teacher_name','teacher_class']);
+        $request->session()->invalidate();
+        $request->session()->regenerateToken();
         return redirect()->route('teacher.login')->with('success', 'Logged out successfully.');
     }
 }

@@ -4,21 +4,31 @@ namespace App\Http\Controllers;
 
 use App\Models\Student;
 use App\Models\Subject;
+use App\Services\StudentAccountService;
 use Illuminate\Http\Request;
 
 class StudentController extends Controller
 {
-    public function index()
+    public function index(StudentAccountService $studentAccountService)
     {
-        $students = Student::with('subjects')->latest()->get();
+        $students = Student::with('subjects')
+            ->orderByRaw("
+                CASE
+                    WHEN reg_no REGEXP '^REG[0-9]{5}$' THEN CAST(SUBSTRING(reg_no, 4) AS UNSIGNED)
+                    ELSE 99999999
+                END ASC
+            ")
+            ->orderBy('reg_no')
+            ->get();
         $subjects = Subject::orderBy('subject_name')->get();
-        return view('students.index', compact('students', 'subjects'));
+        $nextRegNo = $studentAccountService->generateRegNo();
+        return view('students.index', compact('students', 'subjects', 'nextRegNo'));
     }
 
-    public function store(Request $request)
+    public function store(Request $request, StudentAccountService $studentAccountService)
     {
         $request->validate([
-            'reg_no'        => 'required|string|max:50|unique:students,reg_no',
+            'reg_no'        => 'nullable|string|max:50|unique:students,reg_no',
             'full_name'     => 'required|string|max:255',
             'email'         => 'required|email|max:255|unique:students,email',
             'phone'         => 'required|string|max:20',
@@ -30,22 +40,20 @@ class StudentController extends Controller
             'subject_ids.*' => 'exists:subjects,id',
         ]);
 
-        $student = Student::create([
-            'reg_no'    => $request->reg_no,
-            'full_name' => $request->full_name,
-            'email'     => $request->email,
-            'phone'     => $request->phone,
-            'dob'       => $request->dob,
-            'gender'    => $request->gender,
-            'status'    => $request->status ?? 'Active',
-            'class'     => $request->class,
+        $payload = $request->only([
+            'reg_no','full_name','email','phone','dob','gender','status','class'
         ]);
-        $student->subjects()->sync($request->input('subject_ids', []));
+
+        if (blank($payload['reg_no'] ?? null)) {
+            unset($payload['reg_no']);
+        }
+
+        $studentAccountService->createStudent($payload, $request->input('subject_ids', []));
 
         return redirect()->route('students.index')->with('success', 'Student registered successfully!');
     }
 
-    public function update(Request $request, Student $student)
+    public function update(Request $request, Student $student, StudentAccountService $studentAccountService)
     {
         $request->validate([
             'reg_no'        => 'required|string|max:50|unique:students,reg_no,' . $student->id,
@@ -60,17 +68,9 @@ class StudentController extends Controller
             'subject_ids.*' => 'exists:subjects,id',
         ]);
 
-        $student->update([
-            'reg_no'    => $request->reg_no,
-            'full_name' => $request->full_name,
-            'email'     => $request->email,
-            'phone'     => $request->phone,
-            'dob'       => $request->dob,
-            'gender'    => $request->gender,
-            'status'    => $request->status ?? 'Active',
-            'class'     => $request->class,
-        ]);
-        $student->subjects()->sync($request->input('subject_ids', []));
+        $studentAccountService->updateStudent($student, $request->only([
+            'reg_no','full_name','email','phone','dob','gender','status','class'
+        ]), $request->input('subject_ids', []));
 
         return redirect()->route('students.index')->with('success', 'Student updated successfully!');
     }

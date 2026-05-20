@@ -8,13 +8,18 @@ use App\Http\Controllers\SubjectController;
 use App\Http\Controllers\ExportController;
 use App\Http\Controllers\ImportController;
 use App\Http\Controllers\AdminAuthController;
+use App\Http\Controllers\PendingStudentController;
 use App\Http\Controllers\PortalNotificationController;
 use App\Http\Controllers\Portal\StudentAuthController;
 use App\Http\Controllers\Portal\TeacherAuthController;
 use App\Http\Controllers\Portal\StudentPortalController;
 use App\Http\Controllers\Portal\TeacherPortalController;
+use App\Http\Controllers\WebsiteController;
 
-Route::get('/', fn() => redirect()->route('dashboard'))->middleware('admin.auth');
+Route::get('/', [WebsiteController::class, 'home'])->name('website.home');
+Route::get('/subjects/suggestions', [WebsiteController::class, 'subjectSuggestions'])->name('website.subjects.suggestions');
+Route::get('/register-interest', fn () => redirect()->to(route('website.home').'#register'));
+Route::post('/register-interest', [WebsiteController::class, 'register'])->name('website.register');
 
 Route::get('/admin/login',   [AdminAuthController::class, 'showLogin'])->name('admin.login');
 Route::post('/admin/login',  [AdminAuthController::class, 'login'])->name('admin.login.post');
@@ -26,6 +31,9 @@ Route::middleware('admin.auth')->group(function () {
     Route::resource('students', StudentController::class)->only(['index','store','update','destroy']);
     Route::resource('teachers', TeacherController::class)->only(['index','store','update','destroy']);
     Route::resource('subjects',  SubjectController::class)->only(['index','store','update','destroy']);
+    Route::get('/pending-students', [PendingStudentController::class, 'index'])->name('pending-students.index');
+    Route::post('/pending-students/{pendingStudent}/approve', [PendingStudentController::class, 'approve'])->name('pending-students.approve');
+    Route::post('/pending-students/{pendingStudent}/dismiss', [PendingStudentController::class, 'dismiss'])->name('pending-students.dismiss');
 
     Route::post('/export/preview', [ExportController::class, 'preview'])->name('export.preview');
     Route::post('/export',         [ExportController::class, 'export'])->name('export.download');

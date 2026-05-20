@@ -21,7 +21,7 @@
             <button type="button" class="btn btn-sm btn-outline-light fw-semibold px-3" data-bs-toggle="modal" data-bs-target="#exportModal">
                 <i class="bi bi-box-arrow-up me-1"></i>Export
             </button>
-            <button type="button" class="btn btn-light btn-sm fw-semibold px-3 text-success" data-bs-toggle="modal" data-bs-target="#subjectModal">
+            <button type="button" class="btn btn-light btn-sm fw-semibold px-3 text-success" id="openSubjectCreateModal" data-bs-toggle="modal" data-bs-target="#subjectModal">
                 <i class="bi bi-plus-circle me-1"></i>Add New Subject
             </button>
         </div>
@@ -113,7 +113,8 @@
               <label class="form-label"><i class="bi bi-hash me-1 text-success"></i>Subject Code</label>
               <input type="text" id="subject_code" name="subject_code"
                 class="form-control @error('subject_code') is-invalid @enderror"
-                placeholder="e.g. CS101" value="{{ old('subject_code') }}" maxlength="50">
+                placeholder="Auto generated" value="{{ old('subject_code', $nextSubjectCode ?? '') }}" maxlength="50" readonly>
+              <div class="form-text">Generated automatically in subject order.</div>
               @error('subject_code')<div class="invalid-feedback">{{ $message }}</div>@enderror
             </div>
             <div class="col-md-6">
@@ -258,6 +259,13 @@ const subModalTitle  = document.getElementById('subjectModalLabel');
 const subModalHeader = document.getElementById('subModalHeader');
 const subSubmitBtn   = document.getElementById('subSubmitBtn');
 const subStoreUrl    = "{{ route('subjects.store') }}";
+const subjectCodeInput = document.getElementById('subject_code');
+const nextSubjectCode = @json($nextSubjectCode ?? '');
+
+function setCreateSubjectCode() {
+    subjectCodeInput.readOnly = true;
+    subjectCodeInput.value = nextSubjectCode;
+}
 
 document.querySelectorAll('.edit-btn').forEach(btn=>{
     btn.addEventListener('click',function(){
@@ -268,12 +276,26 @@ document.querySelectorAll('.edit-btn').forEach(btn=>{
         subSubmitBtn.style.background   = '#f59e0b';
         subSubmitBtn.style.color        = '#000';
         subSubmitBtn.innerHTML = '<i class="bi bi-save me-1"></i>Update Subject';
-        document.getElementById('subject_code').value = this.dataset.subject_code;
+        subjectCodeInput.readOnly = false;
+        subjectCodeInput.value = this.dataset.subject_code;
         document.getElementById('subject_name').value = this.dataset.subject_name;
         document.getElementById('description').value  = this.dataset.description || '';
         document.getElementById('category').value     = this.dataset.category || '';
         document.getElementById('is_active').checked  = this.dataset.is_active === '1';
     });
+});
+
+document.getElementById('openSubjectCreateModal').addEventListener('click', function () {
+    subForm.action = subStoreUrl;
+    subMethodField.innerHTML = '';
+    subModalTitle.innerHTML = '<i class="bi bi-plus-circle me-2"></i>Add New Subject';
+    subModalHeader.style.background = '#10b981';
+    subSubmitBtn.style.background = '#10b981';
+    subSubmitBtn.style.color = '#fff';
+    subSubmitBtn.innerHTML = '<i class="bi bi-plus-circle me-1"></i>Add Subject';
+    subForm.reset();
+    document.getElementById('is_active').checked = true;
+    setCreateSubjectCode();
 });
 
 document.getElementById('subjectModal').addEventListener('hidden.bs.modal',function(){
@@ -282,10 +304,11 @@ document.getElementById('subjectModal').addEventListener('hidden.bs.modal',funct
     subModalHeader.style.background = '#10b981';
     subSubmitBtn.style.background   = '#10b981'; subSubmitBtn.style.color = '#fff';
     subSubmitBtn.innerHTML = '<i class="bi bi-plus-circle me-1"></i>Add Subject';
-    subForm.reset(); document.getElementById('is_active').checked = true;
+    subForm.reset(); document.getElementById('is_active').checked = true; setCreateSubjectCode();
 });
 
 @if($errors->any()) new bootstrap.Modal(document.getElementById('subjectModal')).show(); @endif
+@if(!$errors->any()) setCreateSubjectCode(); @endif
 
 // ── Table search ──
 const searchInput = document.getElementById('searchInput');
