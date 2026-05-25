@@ -6,6 +6,13 @@
 
 @section('content')
 
+@php
+    $widgetIsEnabled = fn (string $key) => is_null($dashboardWidgets ?? null) || in_array($key, $dashboardWidgets ?? [], true);
+    $primaryColor = $organizationProfile->primary_color ?? '#6366f1';
+    $secondaryColor = $organizationProfile->secondary_color ?? '#0ea5e9';
+    $accentColor = $organizationProfile->accent_color ?? '#f97316';
+@endphp
+
 <style>
     .dashboard-stats-grid {
         display: grid;
@@ -194,8 +201,9 @@
 </style>
 
 <div class="dashboard-stats-grid">
+    @if($widgetIsEnabled('student_stats'))
     <div>
-        <a href="{{ route('students.index') }}" class="stat-card d-block" style="background: linear-gradient(135deg,#6366f1,#818cf8); color:#fff; text-decoration:none;">
+        <a href="{{ route('students.index') }}" class="stat-card d-block" style="background: linear-gradient(135deg,{{ $primaryColor }},{{ $secondaryColor }}); color:#fff; text-decoration:none;">
             <div class="stat-icon" style="background:rgba(255,255,255,0.2);">
                 <i class="bi bi-people-fill"></i>
             </div>
@@ -206,9 +214,11 @@
             </div>
         </a>
     </div>
+    @endif
 
+    @if($widgetIsEnabled('teacher_stats'))
     <div>
-        <a href="{{ route('teachers.index') }}" class="stat-card d-block" style="background: linear-gradient(135deg,#0ea5e9,#38bdf8); color:#fff; text-decoration:none;">
+        <a href="{{ route('teachers.index') }}" class="stat-card d-block" style="background: linear-gradient(135deg,{{ $secondaryColor }},#38bdf8); color:#fff; text-decoration:none;">
             <div class="stat-icon" style="background:rgba(255,255,255,0.2);">
                 <i class="bi bi-person-workspace"></i>
             </div>
@@ -219,7 +229,9 @@
             </div>
         </a>
     </div>
+    @endif
 
+    @if($widgetIsEnabled('subject_stats'))
     <div>
         <a href="{{ route('subjects.index') }}" class="stat-card d-block" style="background: linear-gradient(135deg,#10b981,#34d399); color:#fff; text-decoration:none;">
             <div class="stat-icon" style="background:rgba(255,255,255,0.2);">
@@ -232,9 +244,11 @@
             </div>
         </a>
     </div>
+    @endif
 
+    @if($widgetIsEnabled('pending_students'))
     <div>
-        <a href="{{ route('pending-students.index') }}" class="stat-card d-block" style="background: linear-gradient(135deg,#f97316,#fb923c); color:#fff; text-decoration:none;">
+        <a href="{{ route('pending-students.index') }}" class="stat-card d-block" style="background: linear-gradient(135deg,{{ $accentColor }},#fb923c); color:#fff; text-decoration:none;">
             <div class="stat-icon" style="background:rgba(255,255,255,0.2);">
                 <i class="bi bi-hourglass-split"></i>
             </div>
@@ -245,7 +259,9 @@
             </div>
         </a>
     </div>
+    @endif
 
+    @if($widgetIsEnabled('student_stats'))
     <div>
         <a href="{{ route('students.index') }}" class="stat-card d-block" style="background: linear-gradient(135deg,#0f172a,#334155); color:#fff; text-decoration:none;">
             <div class="stat-icon" style="background:rgba(255,255,255,0.14);">
@@ -258,9 +274,11 @@
             </div>
         </a>
     </div>
+    @endif
 </div>
 
 <div class="row g-4">
+    @if($widgetIsEnabled('student_stats'))
     <div class="col-xl-4">
         <div class="dashboard-grid-card">
             <div class="dashboard-grid-header">
@@ -297,7 +315,9 @@
             </div>
         </div>
     </div>
+    @endif
 
+    @if($widgetIsEnabled('assignment_gaps'))
     <div class="col-xl-4">
         <div class="dashboard-grid-card">
             <div class="dashboard-grid-header">
@@ -381,7 +401,9 @@
             </div>
         </div>
     </div>
+    @endif
 
+    @if($widgetIsEnabled('subject_stats') || $widgetIsEnabled('course_activity'))
     <div class="col-xl-4">
         <div class="dashboard-grid-card">
             <div class="dashboard-grid-header">
@@ -395,6 +417,7 @@
             </div>
         </div>
     </div>
+    @endif
 </div>
 
 <div class="modal fade" id="gapDetailsModal" tabindex="-1" aria-hidden="true">

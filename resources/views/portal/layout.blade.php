@@ -1,3 +1,6 @@
+@php
+  $organizationProfile = \App\Models\OrganizationProfile::defaultProfile();
+@endphp
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -13,6 +16,9 @@ body{font-family:'Inter',sans-serif;background:#f1f5f9;min-height:100vh;}
 /* Sidebar */
 .portal-sidebar{width:240px;min-height:100vh;position:fixed;top:0;left:0;z-index:100;display:flex;flex-direction:column;}
 .portal-sidebar .brand{padding:24px 20px 16px;border-bottom:1px solid rgba(255,255,255,.12);}
+.portal-sidebar .brand-row{display:flex;align-items:center;gap:10px;}
+.portal-sidebar .brand-logo{width:34px;height:34px;border-radius:10px;display:inline-flex;align-items:center;justify-content:center;overflow:hidden;background:rgba(255,255,255,.16);color:#fff;flex:0 0 34px;}
+.portal-sidebar .brand-logo img{width:100%;height:100%;object-fit:contain;background:#fff;display:block;}
 .portal-sidebar .brand h2{color:#fff;font-size:1.1rem;font-weight:800;margin:0;}
 .portal-sidebar .brand small{color:rgba(255,255,255,.65);font-size:.72rem;}
 .portal-sidebar .nav-link{color:rgba(255,255,255,.8);padding:11px 20px;font-size:.875rem;font-weight:500;display:flex;align-items:center;gap:10px;transition:background .15s,color .15s;text-decoration:none;}
@@ -62,8 +68,19 @@ body{font-family:'Inter',sans-serif;background:#f1f5f9;min-height:100vh;}
 {{-- Sidebar --}}
 <div class="portal-sidebar" style="background:@yield('sidebar-bg-inline','linear-gradient(180deg,#0f4c75 0%,#0d7377 100%)');">
   <div class="brand">
-    <h2><i class="bi bi-mortarboard-fill me-2"></i>EduSystem</h2>
-    <small>@yield('portal-type','Portal')</small>
+    <div class="brand-row">
+      <span class="brand-logo">
+        @if($organizationProfile->logo_path)
+          <img src="{{ asset('storage/'.$organizationProfile->logo_path) }}" alt="{{ $organizationProfile->organization_name }} logo">
+        @else
+          <i class="bi bi-mortarboard-fill"></i>
+        @endif
+      </span>
+      <div>
+        <h2>{{ $organizationProfile->organization_name }}</h2>
+        <small>@yield('portal-type','Portal')</small>
+      </div>
+    </div>
   </div>
   @yield('sidebar-nav')
   <div class="sidebar-footer">

@@ -10,6 +10,8 @@ use App\Http\Controllers\ImportController;
 use App\Http\Controllers\AdminAuthController;
 use App\Http\Controllers\PendingStudentController;
 use App\Http\Controllers\PortalNotificationController;
+use App\Http\Controllers\OrganizationSettingsController;
+use App\Http\Controllers\SaasProductController;
 use App\Http\Controllers\Portal\StudentAuthController;
 use App\Http\Controllers\Portal\TeacherAuthController;
 use App\Http\Controllers\Portal\StudentPortalController;
@@ -17,6 +19,7 @@ use App\Http\Controllers\Portal\TeacherPortalController;
 use App\Http\Controllers\WebsiteController;
 
 Route::get('/', [WebsiteController::class, 'home'])->name('website.home');
+Route::get('/edusystem-cloud', [SaasProductController::class, 'index'])->name('saas.product');
 Route::get('/subjects/suggestions', [WebsiteController::class, 'subjectSuggestions'])->name('website.subjects.suggestions');
 Route::get('/register-interest', fn () => redirect()->to(route('website.home').'#register'));
 Route::post('/register-interest', [WebsiteController::class, 'register'])->name('website.register');
@@ -34,6 +37,8 @@ Route::middleware('admin.auth')->group(function () {
     Route::get('/pending-students', [PendingStudentController::class, 'index'])->name('pending-students.index');
     Route::post('/pending-students/{pendingStudent}/approve', [PendingStudentController::class, 'approve'])->name('pending-students.approve');
     Route::post('/pending-students/{pendingStudent}/dismiss', [PendingStudentController::class, 'dismiss'])->name('pending-students.dismiss');
+    Route::get('/organization-settings', [OrganizationSettingsController::class, 'edit'])->name('organization-settings.edit');
+    Route::put('/organization-settings', [OrganizationSettingsController::class, 'update'])->name('organization-settings.update');
 
     Route::post('/export/preview', [ExportController::class, 'preview'])->name('export.preview');
     Route::post('/export',         [ExportController::class, 'export'])->name('export.download');

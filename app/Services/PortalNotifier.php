@@ -7,6 +7,7 @@ use App\Models\Mcq;
 use App\Models\PortalNotification;
 use App\Models\Student;
 use App\Models\Teacher;
+use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Mail;
 
 class PortalNotifier
@@ -105,9 +106,21 @@ class PortalNotifier
             return;
         }
 
+        if (config('mail.default') === 'log') {
+            Log::warning('Portal email was not delivered because MAIL_MAILER is set to log.', [
+                'to' => $email,
+                'subject' => $subject,
+            ]);
+        }
+
         try {
             Mail::raw($body, fn($message) => $message->to($email)->subject($subject));
         } catch (\Throwable $exception) {
+            Log::error('Portal email delivery failed.', [
+                'to' => $email,
+                'subject' => $subject,
+                'error' => $exception->getMessage(),
+            ]);
             report($exception);
         }
     }

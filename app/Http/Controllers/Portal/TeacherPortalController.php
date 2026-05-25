@@ -61,11 +61,28 @@ class TeacherPortalController extends Controller
     }
 
     // ── Students list ─────────────────────────────────────────────
-    public function students() {
+    public function students(Request $request) {
         $teacher  = $this->teacher();
-        $students = Student::where('class', $teacher->class)
-            ->with('subjects')->orderBy('full_name')->get();
-        return view('portal.teacher.students', compact('teacher','students'));
+        $search = trim((string) $request->query('search', ''));
+
+        $studentQuery = Student::query()
+            ->where('class', $teacher->class)
+            ->when($search !== '', function ($query) use ($search) {
+                $query->where(function ($inner) use ($search) {
+                    $inner->where('full_name', 'like', "%{$search}%")
+                        ->orWhere('reg_no', 'like', "%{$search}%")
+                        ->orWhere('email', 'like', "%{$search}%");
+                });
+            });
+
+        $studentCount = (clone $studentQuery)->count();
+        $students = $studentQuery
+            ->with(['subjects:id,subject_code,subject_name'])
+            ->orderBy('full_name')
+            ->paginate(18)
+            ->withQueryString();
+
+        return view('portal.teacher.students', compact('teacher','students','studentCount','search'));
     }
 
     // ── Courses / Content ─────────────────────────────────────────
@@ -318,20 +335,20 @@ class TeacherPortalController extends Controller
             return response()->json([
                 'message' => 'Could not read questions from this file. Please check the document format and try again.',
                 'questions' => [],
-            ], 422);
+            ], 422, [], JSON_UNESCAPED_UNICODE | JSON_INVALID_UTF8_SUBSTITUTE);
         }
 
         if (empty($questions)) {
             return response()->json([
                 'message' => 'No valid MCQ questions found. Use clear question lines and option lines such as A), B), C), D).',
                 'questions' => [],
-            ], 422);
+            ], 422, [], JSON_UNESCAPED_UNICODE | JSON_INVALID_UTF8_SUBSTITUTE);
         }
 
         return response()->json([
             'message' => count($questions).' question(s) imported. Please select the correct answer for each question before publishing.',
             'questions' => $questions,
-        ]);
+        ], 200, [], JSON_UNESCAPED_UNICODE | JSON_INVALID_UTF8_SUBSTITUTE);
     }
 
     public function storeMcq(Request $request) {

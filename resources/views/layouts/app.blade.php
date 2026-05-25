@@ -1,3 +1,7 @@
+@php
+    $organizationProfile = \App\Models\OrganizationProfile::defaultProfile();
+    $moduleIsEnabled = fn (string $key) => $organizationProfile->moduleEnabled($key);
+@endphp
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -7,6 +11,11 @@
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
     <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css" rel="stylesheet">
     <style>
+        :root {
+            --org-primary: {{ $organizationProfile->primary_color ?: '#6366f1' }};
+            --org-secondary: {{ $organizationProfile->secondary_color ?: '#14b8a6' }};
+            --org-accent: {{ $organizationProfile->accent_color ?: '#f59e0b' }};
+        }
         body { margin: 0; font-family: 'Segoe UI', sans-serif; background: #f0f4f8; }
 
         /* ── Sidebar ── */
@@ -23,6 +32,30 @@
         .sidebar-brand {
             padding: 22px 20px 18px;
             border-bottom: 1px solid rgba(255,255,255,0.08);
+        }
+        .sidebar-logo {
+            width: 34px;
+            height: 34px;
+            border-radius: 10px;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            overflow: hidden;
+            background: color-mix(in srgb, var(--org-primary) 18%, transparent);
+            color: var(--org-primary);
+            flex: 0 0 34px;
+        }
+        .sidebar-logo img {
+            width: 100%;
+            height: 100%;
+            object-fit: contain;
+            display: block;
+            background: #fff;
+        }
+        .sidebar-brand-row {
+            display: flex;
+            align-items: center;
+            gap: 10px;
         }
         .sidebar-brand h6 {
             color: #fff;
@@ -58,9 +91,9 @@
             color: #fff;
         }
         .sidebar-link.active {
-            background: rgba(99,102,241,0.15);
-            color: #818cf8;
-            border-left-color: #6366f1;
+            background: color-mix(in srgb, var(--org-primary) 18%, transparent);
+            color: #fff;
+            border-left-color: var(--org-primary);
         }
         .sidebar-link i { font-size: 1.05rem; width: 18px; }
 
@@ -73,7 +106,7 @@
         }
         .topbar {
             background: #fff;
-            border-bottom: 1px solid #e5e7eb;
+            border-bottom: 2px solid color-mix(in srgb, var(--org-secondary) 22%, #e5e7eb);
             padding: 14px 28px;
             display: flex;
             align-items: center;
@@ -81,6 +114,19 @@
         }
         .topbar h5 { margin: 0; font-weight: 600; font-size: 1rem; color: #1a1f2e; }
         .topbar small { color: #6b7280; font-size: 0.8rem; }
+        .subscription-badge {
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            border-radius: 999px;
+            padding: 6px 11px;
+            background: color-mix(in srgb, var(--org-primary) 12%, #ffffff);
+            border: 1px solid color-mix(in srgb, var(--org-primary) 24%, #e5e7eb);
+            color: var(--org-primary);
+            font-size: 0.76rem;
+            font-weight: 800;
+            white-space: nowrap;
+        }
         .content { padding: 28px; flex: 1; }
 
         /* ── Cards ── */
@@ -128,7 +174,7 @@
         .table tbody tr:hover { background: #f8f9fa; }
         .badge-code {
             background: #eef2ff;
-            color: #6366f1;
+            color: var(--org-primary);
             font-weight: 600;
             padding: 3px 8px;
             border-radius: 6px;
@@ -138,6 +184,10 @@
         .btn-action { padding: 3px 10px; font-size: 0.78rem; border-radius: 6px; }
         .empty-state { padding: 48px 20px; text-align: center; color: #9ca3af; }
         .empty-state i { font-size: 2.8rem; display: block; margin-bottom: 10px; }
+        @media (max-width: 991.98px) {
+            .topbar { flex-wrap: wrap; }
+            .topbar .ms-auto { width: 100%; justify-content: flex-start; flex-wrap: wrap; }
+        }
     </style>
 </head>
 <body>
@@ -145,8 +195,19 @@
 {{-- ══ SIDEBAR ══ --}}
 <div id="sidebar">
     <div class="sidebar-brand">
-        <h6><i class="bi bi-mortarboard-fill me-2" style="color:#818cf8;"></i>EduSystem</h6>
-        <small>School Management</small>
+        <div class="sidebar-brand-row">
+            <span class="sidebar-logo">
+                @if($organizationProfile->logo_path)
+                    <img src="{{ asset('storage/'.$organizationProfile->logo_path) }}" alt="{{ $organizationProfile->organization_name }} logo">
+                @else
+                    <i class="bi bi-mortarboard-fill"></i>
+                @endif
+            </span>
+            <div>
+                <h6>{{ $organizationProfile->organization_name }}</h6>
+                <small>{{ $organizationProfile->contact_phone ?: 'School Management' }}</small>
+            </div>
+        </div>
     </div>
 
     <nav class="sidebar-nav">
@@ -157,34 +218,49 @@
             <i class="bi bi-grid-1x2-fill"></i> Dashboard
         </a>
 
-        <a href="{{ route('students.index') }}"
-           class="sidebar-link {{ request()->routeIs('students.*') ? 'active' : '' }}">
-            <i class="bi bi-people-fill"></i> Students
-        </a>
+        @if($moduleIsEnabled('students'))
+            <a href="{{ route('students.index') }}"
+               class="sidebar-link {{ request()->routeIs('students.*') ? 'active' : '' }}">
+                <i class="bi bi-people-fill"></i> Students
+            </a>
+        @endif
 
-        <a href="{{ route('teachers.index') }}"
-           class="sidebar-link {{ request()->routeIs('teachers.*') ? 'active' : '' }}">
-            <i class="bi bi-person-workspace"></i> Teachers
-        </a>
+        @if($moduleIsEnabled('teachers'))
+            <a href="{{ route('teachers.index') }}"
+               class="sidebar-link {{ request()->routeIs('teachers.*') ? 'active' : '' }}">
+                <i class="bi bi-person-workspace"></i> Teachers
+            </a>
+        @endif
 
-        <a href="{{ route('subjects.index') }}"
-           class="sidebar-link {{ request()->routeIs('subjects.*') ? 'active' : '' }}">
-            <i class="bi bi-book-fill"></i> Subjects
-        </a>
+        @if($moduleIsEnabled('subjects'))
+            <a href="{{ route('subjects.index') }}"
+               class="sidebar-link {{ request()->routeIs('subjects.*') ? 'active' : '' }}">
+                <i class="bi bi-book-fill"></i> Subjects
+            </a>
+        @endif
 
-        <a href="{{ route('pending-students.index') }}"
-           class="sidebar-link {{ request()->routeIs('pending-students.*') ? 'active' : '' }}">
-            <i class="bi bi-person-lines-fill"></i> Pending Students
+        @if($moduleIsEnabled('website_registrations'))
+            <a href="{{ route('pending-students.index') }}"
+               class="sidebar-link {{ request()->routeIs('pending-students.*') ? 'active' : '' }}">
+                <i class="bi bi-person-lines-fill"></i> Pending Students
+            </a>
+        @endif
+
+        <a href="{{ route('organization-settings.edit') }}"
+           class="sidebar-link {{ request()->routeIs('organization-settings.*') ? 'active' : '' }}">
+            <i class="bi bi-sliders2-vertical"></i> Setup
         </a>
 
         <div style="flex:1;"></div>
 
         <div class="nav-label" style="margin-top:10px;">Data Tools</div>
 
-        <a href="{{ route('import.index') }}"
-           class="sidebar-link {{ request()->routeIs('import.*') ? 'active' : '' }}">
-            <i class="bi bi-box-arrow-in-down"></i> Import
-        </a>
+        @if($moduleIsEnabled('exports'))
+            <a href="{{ route('import.index') }}"
+               class="sidebar-link {{ request()->routeIs('import.*') ? 'active' : '' }}">
+                <i class="bi bi-box-arrow-in-down"></i> Import
+            </a>
+        @endif
     </nav>
 </div>
 
@@ -196,6 +272,15 @@
             <small>@yield('page-subtitle', 'Welcome back!')</small>
         </div>
         <div class="ms-auto d-flex align-items-center gap-3">
+            <span class="subscription-badge" title="{{ $organizationProfile->planStatusLabel() }} subscription">
+                <i class="bi bi-gem"></i>{{ $organizationProfile->planLabel() }} Plan
+            </span>
+            @if($organizationProfile->contact_email)
+                <span class="text-muted d-none d-lg-inline" style="font-size:.78rem;">{{ $organizationProfile->contact_email }}</span>
+            @endif
+            @if($organizationProfile->address)
+                <span class="text-muted d-none d-xxl-inline" style="font-size:.78rem;">{{ $organizationProfile->address }}</span>
+            @endif
             <span style="font-size:.85rem;color:#374151;font-weight:600;">{{ session('admin_name', 'Admin') }}</span>
             <form action="{{ route('admin.logout') }}" method="POST" class="m-0">
                 @csrf

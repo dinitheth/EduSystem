@@ -6,11 +6,14 @@ use App\Models\Student;
 use App\Models\Teacher;
 use App\Models\Subject;
 use App\Models\PendingStudent;
+use App\Models\OrganizationProfile;
 
 class DashboardController extends Controller
 {
     public function index()
     {
+        $organizationProfile = OrganizationProfile::defaultProfile();
+        $dashboardWidgets = $organizationProfile->dashboard_widgets;
         $totalStudents = Student::count();
         $totalTeachers = Teacher::count();
         $totalSubjects = Subject::count();
@@ -112,7 +115,9 @@ class DashboardController extends Controller
             'inactiveSubjectsList',
             'inactiveSubjectsFullList',
             'unusedSubjectsList',
-            'unusedSubjectsFullList'
+            'unusedSubjectsFullList',
+            'organizationProfile',
+            'dashboardWidgets'
         ));
     }
 }

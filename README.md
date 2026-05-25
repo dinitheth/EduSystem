@@ -17,6 +17,136 @@ It supports website registrations, pending approval flow, class and subject assi
 
 ## Main Areas
 
+## Product Website and Setup Layer
+
+The project includes a separate product information website and an admin setup layer for configuring the system for different education organizations.
+
+This does not replace the current CodeXpress Institute website or portals.
+
+Routes:
+
+- `/edusystem-cloud`
+- `/organization-settings`
+
+Purpose:
+
+- `/` remains the CodeXpress Institute website
+- `/edusystem-cloud` is the product information website for EduSystem Cloud
+- `/organization-settings` is the admin setup panel for organization branding, portals, dashboards, modules, widgets, and workflows
+
+### SaaS Product Website
+
+The product website explains:
+
+- What the system is
+- How the system works
+- Which organizations can use it
+- Student, teacher, and admin portal value
+- Student registration and approval flow
+- Assignment, MCQ, marks, notification, and reporting workflows
+- Organization setup and system configuration options
+- Pricing plans in LKR
+
+Pricing plans currently shown:
+
+- Free Trial: `LKR 0` for 14 days
+- Plus: `LKR 12,500` per month
+- Pro: `LKR 28,500` per month
+
+Plan positioning:
+
+- Free Trial is for demo and testing
+- Plus is for active small or medium institutes
+- Pro is for larger or highly customized organizations
+
+Current SaaS foundation:
+
+- Organization profiles now support plan metadata
+- CodeXpress Institute is treated as a Pro organization
+- Plan fields include plan name, status, student limit, trial end date, and subscription end date
+- Admin top bar shows the active subscription plan
+- Admin dashboard shows an organization subscription summary
+- Full multi-tenancy is the next architecture step
+
+Multi-tenancy means one Laravel application and one database can serve many organizations, while every organization only sees its own students, teachers, subjects, assignments, MCQs, marks, notifications, and settings.
+
+To make this fully production-ready, every tenant-owned table should receive an `organization_profile_id`, and all admin, teacher, student, report, notification, import, and export queries should be scoped through the active organization.
+
+### Organization Customization Panel
+
+Admin route:
+
+- `/organization-settings`
+
+This page stores organization-level setup settings in the `organization_profiles` table.
+
+Organization admins can configure:
+
+- Organization name
+- Logo
+- Logo upload requires exactly `512 x 512 px`
+- Primary color
+- Secondary color
+- Accent color
+- Light, dark, or system theme mode
+- Contact email
+- Contact phone
+- Address
+- Enabled modules
+- Dashboard widgets
+- Workflow controls
+- Portal section visibility planning
+
+Setup controls are organized into clear groups:
+
+- System Modules: Academic Records, Teaching Workflow, Communication and Operations
+- Dashboard Widgets: Core Dashboard Cards, Activity and Alerts
+- Workflow Controls: Automatic Numbering, Access Rules, Assessment Rules, Notifications
+- Portal Sections: Admin Portal, Teacher Portal, Student Portal
+
+Current applied behavior:
+
+- Logo and organization name appear in the admin sidebar
+- Logo and organization name appear in teacher and student portal sidebars
+- Contact email and address appear in the admin topbar
+- Contact phone appears under the organization name in the admin sidebar
+- Enabled modules control admin sidebar visibility
+- Dashboard widgets control visible admin dashboard cards/sections
+- The setup preview updates live while editing organization name, theme, colors, contact details, modules, widgets, and workflow controls
+
+Workflow controls include:
+
+- Auto-generated student registration numbers
+- Auto-generated teacher employee numbers
+- Auto-generated subject codes
+- Admin approval for website registrations
+- Teacher subject access limits
+- Student class access limits
+- MCQ start-time enforcement
+- MCQ expiry enforcement
+- Assignment grade syncing into marks
+- Email-ready notification workflow
+
+Current table:
+
+- `organization_profiles`
+
+Current model:
+
+- `app/Models/OrganizationProfile.php`
+
+Current controllers:
+
+- `app/Http/Controllers/SaasProductController.php`
+- `app/Http/Controllers/OrganizationSettingsController.php`
+
+Current views:
+
+- `resources/views/saas/product.blade.php`
+- `resources/views/organization_settings/edit.blade.php`
+
+This is the foundation for turning the current institute system into a multi-organization SaaS product. The next step for a full commercial SaaS version would be tenant isolation, subscription billing, organization-specific domains, and applying saved organization settings dynamically across each organization's public website and dashboards.
+
 ### Public Website
 
 Route:
@@ -201,7 +331,7 @@ Teacher can:
 
 - Log in with teacher email and password
 - View dashboard statistics
-- View class students
+- View class students with server-side pagination and search
 - View assigned subjects
 - Upload course content
 - Publish assignments
@@ -352,12 +482,45 @@ Current behavior:
 - Ignores numbering like `1.` or `A)`
 - Does not auto-select the correct answer
 - Teacher still selects the correct answer manually before publishing
+- Supports Unicode text for Sinhala and Tamil PDFs when the PDF contains extractable text
+- Uses Python PDF extraction first, then falls back to the PHP PDF parser
+- Repairs common Sinhala/Tamil PDF extraction artifacts caused by broken glyph mapping
 
 Main files:
 
 - `app/Services/McqQuestionImporter.php`
 - `app/Http/Controllers/Portal/TeacherPortalController.php`
 - `resources/views/portal/teacher/mcq_create.blade.php`
+
+Python helper packages:
+
+- `pdfminer.six`
+- `pypdf`
+
+Install them with:
+
+```bash
+pip install -r requirements.txt
+```
+
+Sinhala/Tamil PDF import fix:
+
+The old import path used only the PHP PDF parser. Some Sinhala and Tamil PDFs produced replacement characters like `�`, question marks inside words, or stray letters such as `J` and `0`.
+
+The current importer:
+
+1. Extracts text with Python `pdfminer.six`
+2. Falls back to `pypdf` if needed
+3. Falls back to `smalot/pdfparser` only if Python extraction gives no usable text
+4. Forces UTF-8 output
+5. Cleans common Sinhala and Tamil extraction artifacts line by line before filling the MCQ fields
+
+Verified sample files:
+
+- `CS_Quiz_Class_D_Sinhala.pdf`
+- `CS_Quiz_Class_D_Tamil.pdf`
+
+Both import 20 questions and keep Sinhala/Tamil text readable in the MCQ fields.
 
 ### MCQ Navigation Panel
 
@@ -465,6 +628,14 @@ MAIL_FROM_NAME="CodeXpress Institute"
 ```bash
 php artisan config:clear
 ```
+
+Send a test email after SMTP is configured:
+
+```bash
+php artisan mail:test student@example.com
+```
+
+If `MAIL_MAILER=log`, the system writes a warning to `storage/logs/laravel.log` explaining that the email was not delivered to a real inbox.
 
 ## File Storage
 
